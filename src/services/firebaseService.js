@@ -1,3 +1,5 @@
+// src/services/firebaseService.js
+
 import { 
     getDoc, getFirestore, doc, getDocs, collection, addDoc, deleteDoc, 
     setDoc, serverTimestamp, writeBatch, query, where, onSnapshot, 
@@ -73,8 +75,10 @@ export const storyService = {
   
   addMessage: async (storyId, messageData) => {
     if (!storyId) throw new Error("메시지를 추가하려면 스토리 ID가 필요합니다.");
+    const sanitizedMessage = sanitizeForFirestore(messageData);
+    console.warn('[DEBUG] Adding Message:', JSON.parse(JSON.stringify(sanitizedMessage)));
     const messagesRef = collection(db, "stories", storyId, "messages");
-    await addDoc(messagesRef, messageData);
+    await addDoc(messagesRef, sanitizedMessage);
   },
 
   deleteMessage: async (storyId, messageDocId) => {
@@ -85,13 +89,17 @@ export const storyService = {
 
   saveStory: async (id, data) => {
     if (!id) throw new Error("저장할 이야기가 없습니다.");
-    const { apiLog, vectorIndices, messages, ...storyDataToSave } = data;
+    // 개선: apiLog 등 제외 로직을 제거하여 모든 관련 데이터를 저장하도록 수정합니다.
+    const sanitizedData = sanitizeForFirestore(data);
+    console.warn('[DEBUG] Saving Story Data:', JSON.parse(JSON.stringify(sanitizedData)));
     const storyRef = doc(db, "stories", id);
-    await setDoc(storyRef, { ...storyDataToSave, updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(storyRef, { ...sanitizedData, updatedAt: serverTimestamp() }, { merge: true });
   },
 
   createNewStory: async (storyData) => {
-    const docRef = await addDoc(collection(db, "stories"), { ...storyData, createdAt: serverTimestamp() });
+    const sanitizedData = sanitizeForFirestore(storyData);
+    console.warn('[DEBUG] Creating New Story:', JSON.parse(JSON.stringify(sanitizedData)));
+    const docRef = await addDoc(collection(db, "stories"), { ...sanitizedData, createdAt: serverTimestamp() });
     return docRef.id;
   },
 
@@ -101,7 +109,6 @@ export const storyService = {
     const subCollections = ['messages', 'sceneIndex', 'loreIndex', 'characterIndex'];
 
     const deleteCollectionInBatch = async (collectionRef) => {
-        // 한 번에 처리하는 문서 수를 50으로 더 줄여서 안정성 대폭 향상
         const q = query(collectionRef, limit(50));
         let snapshot = await getDocs(q);
 
@@ -155,8 +162,10 @@ export const storyService = {
 
   addIndexEntry: async (storyId, collectionName, entry) => {
       if (!storyId || !collectionName || !entry || !entry.id) return;
-      const vectorDocRef = doc(db, "stories", storyId, collectionName, entry.id);
-      await setDoc(vectorDocRef, entry);
+      const sanitizedEntry = sanitizeForFirestore(entry);
+      console.warn(`[DEBUG] Adding Index Entry to ${collectionName}:`, JSON.parse(JSON.stringify(sanitizedEntry)));
+      const vectorDocRef = doc(db, "stories", storyId, collectionName, sanitizedEntry.id);
+      await setDoc(vectorDocRef, sanitizedEntry);
   },
 
   deleteIndexEntries: async (storyId, collectionName, entryIds) => {
@@ -195,7 +204,6 @@ export const storyService = {
 
   saveCharacterTemplate: async (templateData) => {
     const { id, ...dataToSave } = templateData;
-    // Firestore에 저장하기 전에 'undefined' 값을 제거하여 데이터를 소독합니다.
     const sanitizedData = sanitizeForFirestore(dataToSave);
     const templateRef = doc(db, "characterTemplates", id);
     await setDoc(templateRef, { ...sanitizedData, savedAt: serverTimestamp() });

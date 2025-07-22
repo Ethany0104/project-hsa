@@ -1,105 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { StoryProvider, useStoryContext } from './contexts/StoryProvider';
-import ControlTower from './components/ControlTower';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useStoryContext } from './contexts/StoryProvider';
+import ControlTower from './components/control_tower/ControlTower';
 import MainView from './components/MainView';
-import { CharacterSheet } from './components/character/CharacterSheet';
-// 수정: 이제 모든 모달을 './components/ui'에서 한번에 가져올 수 있습니다.
-import { SideSheet, Toast, PdChatModal } from './components/ui';
+import { UserSheetContent } from './components/character/UserSheetContent';
+import { PersonaSheetContent } from './components/character/PersonaSheetContent';
+// [FEATURE] 새로 만든 PersonaStatusFloater와 SideSheet, Toast를 import합니다.
+import { SideSheet, Toast, PersonaStatusFloater } from './components/ui';
+import { PdChatModal } from './components/pd_chat/PdChatModal';
 import './styles/theme.css';
 
 function App() {
+    const { storyProps, handlerProps } = useStoryContext();
+  const {
+    editingState,
+    characters,
+    toast,
+    // [FEATURE] 현황 창 관련 상태를 context에서 가져옵니다.
+    floatingStatusWindows,
+    latestEmotionAnalysis,
+  } = storyProps;
+
+  const {
+    setEditingState,
+    setCharacters,
+    setToast,
+    // [FEATURE] 현황 창 토글 핸들러를 context에서 가져옵니다.
+    handleToggleFloater,
+  } = handlerProps;
+
+  const [activeTab, setActiveTab] = useState('character');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
+  const [isPdChatOpen, setIsPdChatOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsSidebarOpen(window.innerWidth > 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const toggleSidebar = useCallback(() => setIsSidebarOpen(prev => !prev), []);
+  const togglePdChat = useCallback(() => setIsPdChatOpen(prev => !prev), []);
+
+  const handleEditCharacter = useCallback((character) => {
+    setEditingState({
+      isOpen: true,
+      type: character.isUser ? 'user' : 'persona',
+      characterId: character.id,
+    });
+  }, [setEditingState]);
+
+  const handleCloseSheets = useCallback(() => {
+    setEditingState(prev => ({ ...prev, isOpen: false }));
+  }, [setEditingState]);
+
+  const handleUpdateCharacter = useCallback((updatedCharacter) => {
+    setCharacters(prev => prev.map(c => c.id === updatedCharacter.id ? updatedCharacter : c));
+  }, [setCharacters]);
+
+  const editingCharacter = useMemo(() => {
+    if (!editingState.characterId) return null;
+    return characters.find(c => c.id === editingState.characterId);
+  }, [editingState.characterId, characters]);
+
   return (
-    <StoryProvider>
-      <AppContent />
-    </StoryProvider>
+    <>
+      <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+        <ControlTower
+          isOpen={isSidebarOpen}
+          onToggle={toggleSidebar}
+          onEditCharacter={handleEditCharacter}
+          onTogglePdChat={togglePdChat}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          // [FEATURE] ControlTower에 핸들러를 전달합니다.
+          onToggleFloater={handleToggleFloater}
+        />
+        <MainView onToggleSidebar={toggleSidebar} />
+        {isSidebarOpen && window.innerWidth <= 768 && (
+          <div className="main-view-overlay" onClick={toggleSidebar}></div>
+        )}
+      </div>
+
+      <Toast 
+        message={toast.message} 
+        show={toast.show} 
+        onDismiss={() => setToast(prev => ({...prev, show: false}))} 
+      />
+
+      <SideSheet isOpen={editingState.isOpen && editingState.type === 'user'} onClose={handleCloseSheets} size="narrow">
+        {editingCharacter && <UserSheetContent character={editingCharacter} onUpdate={handleUpdateCharacter} onClose={handleCloseSheets} />}
+      </SideSheet>
+
+      <SideSheet isOpen={editingState.isOpen && editingState.type === 'persona'} onClose={handleCloseSheets} size="default">
+        {editingCharacter && <PersonaSheetContent character={editingCharacter} onUpdate={handleUpdateCharacter} onClose={handleCloseSheets} />}
+      </SideSheet>
+
+      <PdChatModal isOpen={isPdChatOpen} onClose={togglePdChat} />
+
+      {/* [FEATURE] 열려있는 현황 창들을 렌더링합니다. */}
+      {floatingStatusWindows.map(charId => {
+          const char = characters.find(c => c.id === charId);
+          if (!char) return null;
+          return (
+              <PersonaStatusFloater
+                  key={char.id}
+                  character={char}
+                  latestEmotionAnalysis={latestEmotionAnalysis}
+                  onClose={() => handleToggleFloater(char.id)}
+              />
+          );
+      })}
+    </>
   );
 }
 
 export default App;
-
-const AppContent = React.memo(() => {
-  const { storyProps, handlerProps } = useStoryContext();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [theme, setTheme] = useState('dark');
-  const [editingCharacter, setEditingCharacter] = useState(null);
-  const [sheetSize, setSheetSize] = useState('default');
-  const [isPdChatOpen, setIsPdChatOpen] = useState(false);
-
-  useEffect(() => {
-    document.body.setAttribute('data-theme', theme);
-  }, [theme]);
-  
-  useEffect(() => {
-    if (editingCharacter) {
-      const updatedCharacterInList = storyProps.characters.find(c => c.id === editingCharacter.id);
-      if (updatedCharacterInList && JSON.stringify(updatedCharacterInList) !== JSON.stringify(editingCharacter)) {
-        setEditingCharacter(updatedCharacterInList);
-      }
-    }
-  }, [storyProps.characters, editingCharacter]);
-
-  const toggleTheme = () => {
-    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-  
-  const handleEditCharacter = (character) => {
-    setSheetSize(character.isProtagonist ? 'narrow' : 'default');
-    setEditingCharacter(character);
-  };
-
-  const handleCloseSheet = () => {
-    setEditingCharacter(null);
-  };
-  
-  const handleUpdateCharacter = (updatedCharacter) => {
-      const { setCharacters } = handlerProps;
-      setCharacters(prev => prev.map(c => c.id === updatedCharacter.id ? updatedCharacter : c));
-  };
-
-  const togglePdChat = () => setIsPdChatOpen(prev => !prev);
-
-  return (
-    <>
-      <div className="relative flex h-screen overflow-hidden">
-        <ControlTower 
-          isOpen={isSidebarOpen}
-          onToggle={toggleSidebar}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onEditCharacter={handleEditCharacter}
-          onTogglePdChat={togglePdChat}
-        />
-        <MainView 
-          onToggleSidebar={toggleSidebar}
-        />
-        <Toast 
-          message={storyProps.toast.message} 
-          show={storyProps.toast.show} 
-          onDismiss={() => handlerProps.setToast({ show: false, message: '' })} 
-        />
-        <SideSheet 
-            isOpen={!!editingCharacter} 
-            onClose={handleCloseSheet}
-            size={sheetSize}
-        >
-            {editingCharacter && (
-                <CharacterSheet
-                    character={editingCharacter}
-                    onUpdate={handleUpdateCharacter}
-                    onClose={handleCloseSheet}
-                />
-            )}
-        </SideSheet>
-        {/* 수정: PdChatModal은 이제 props를 받지 않고 내부에서 Context를 사용합니다. */}
-        <PdChatModal
-          isOpen={isPdChatOpen}
-          onClose={togglePdChat}
-        />
-      </div>
-    </>
-  );
-});

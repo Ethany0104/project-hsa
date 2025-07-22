@@ -2,68 +2,67 @@ import { useState } from 'react';
 import { ICONS } from '../../constants';
 
 /**
- * 화면 측면에서 나타나는 사이드 시트(Side Sheet) 컴포넌트
- * @param {object} props - { isOpen: boolean, onClose: function, children: React.ReactNode, size?: 'default' | 'narrow' }
+ * A side sheet component that slides in from the right.
+ * @param {object} props - { isOpen, onClose, children, size?: 'default' | 'narrow' }
  */
 export const SideSheet = ({ isOpen, onClose, children, size = 'default' }) => {
     const sizeClasses = {
-        default: 'w-full md:w-5/6 lg:w-4/5 max-w-7xl',
-        narrow: 'w-full max-w-md md:max-w-none md:w-[440px]'
+        // [PD 주석] v21: 페르소나 패널(3단)에 최적화된 너비(6xl, 1152px)로 재조정
+        default: 'w-screen lg:w-full lg:max-w-6xl',
+        // [PD 주석] v21: 유저 패널(1단)이 너무 좁아보이지 않도록 너비를 lg(512px)로 재조정
+        narrow: 'w-screen md:w-full md:max-w-lg'
+    };
+
+    const transformStyle = {
+        transform: isOpen ? 'translateX(0)' : 'translateX(100%)'
     };
 
     return (
         <>
-            <div 
-                className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} 
+            <div
+                className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 z-[109] ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             ></div>
-            <div 
-                className={`fixed inset-y-0 left-0 bg-[var(--bg)] shadow-2xl transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-[var(--border)] ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${sizeClasses[size]}`}
+
+            <div
+                className={`fixed inset-y-0 right-0 z-[110] transition-transform duration-300 ease-in-out ${sizeClasses[size]}`}
+                style={transformStyle}
             >
-                {children}
+                <div className="h-full bg-[var(--panel-bg)] shadow-2xl flex flex-col border-l border-[var(--border-primary)] w-full">
+                    {children}
+                </div>
             </div>
         </>
     );
 };
 
-/**
- * 접고 펼 수 있는 아코디언(Accordion) 컴포넌트
- * @param {object} props - { title: string, children: React.ReactNode, icon?: React.ElementType, defaultOpen?: boolean }
- */
+
 export const Accordion = ({ title, children, icon: Icon, defaultOpen = false }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
-        <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--panel-bg-alt)]">
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-3 hover:bg-[var(--border)] transition-colors">
+        <div className="border border-[var(--border-primary)] rounded-lg overflow-hidden bg-[var(--bg-secondary)]">
+            <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-3 hover:bg-[var(--bg-tertiary)] transition-colors">
                 <div className="flex items-center">
-                    {Icon && <Icon className="w-4 h-4 mr-2 text-[var(--text-secondary)]" />}
+                    {Icon && <Icon className="w-4 h-4 mr-2.5 text-[var(--text-secondary)]" />}
                     <span className="font-semibold text-sm text-[var(--text-primary)] font-sans">{title}</span>
                 </div>
-                {isOpen ? <ICONS.LucideChevronDown className="w-5 h-5 text-[var(--text-secondary)]" /> : <ICONS.LucideChevronRight className="w-5 h-5 text-[var(--text-secondary)]" />}
+                <ICONS.LucideChevronRight className={`w-5 h-5 text-[var(--text-secondary)] transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
             </button>
-            {isOpen && <div className="p-3 border-t border-[var(--border)] bg-[var(--panel-bg)]">{children}</div>}
+            {isOpen && <div className="p-4 border-t border-[var(--border-primary)] bg-[var(--bg-primary)] animate-fadeIn">{children}</div>}
         </div>
     );
 };
 
-/**
- * 컨텐츠를 감싸는 기본 카드(Card) 레이아웃
- * @param {object} props - { children: React.ReactNode, className?: string }
- */
 export const Card = ({ children, className = "" }) => (
-    <div className={`bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl p-4 shadow-sm ${className}`}>
+    <div className={`bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl p-4 shadow-md ${className}`}>
         {children}
     </div>
 );
 
-/**
- * 카드 컴포넌트의 헤더(CardHeader)
- * @param {object} props - { icon: React.ElementType, title: string, children?: React.ReactNode }
- */
 export const CardHeader = ({ icon: Icon, title, children }) => (
-    <div className="flex justify-between items-center mb-3">
+    <div className="flex justify-between items-center mb-4 pb-3 border-b border-[var(--border-primary)]">
         <div className="flex items-center">
-            <Icon className="w-5 h-5 mr-2 text-[var(--accent)]" />
+            <Icon className="w-5 h-5 mr-3 text-[var(--accent-primary)]" />
             <h3 className="text-md font-bold text-[var(--text-primary)] font-sans">{title}</h3>
         </div>
         <div>{children}</div>

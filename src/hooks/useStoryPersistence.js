@@ -1,22 +1,16 @@
+// hooks/useStoryPersistence.js
+
 import { useEffect, useCallback, useRef } from 'react';
 import { storyService } from '../services/firebaseService';
-import { DEFAULT_PROTAGONIST, DEFAULT_LOREBOOK, DEFAULT_AI_SETTINGS, DEFAULT_WORLD_STATE } from '../constants/defaults';
+import { DEFAULT_USER, DEFAULT_CONTEXT_SETTINGS, DEFAULT_AI_SETTINGS, DEFAULT_WORLD_STATE } from '../constants/defaults';
 
-/**
- * 이야기 데이터의 영속성(저장, 로드, 삭제 등)을 관리하는 커스텀 훅입니다.
- * 분리된 storyDataState와 uiState를 인자로 받습니다.
- * @param {object} storyDataState - 이야기의 핵심 데이터 상태 객체
- * @param {object} uiState - UI 및 상호작용 관련 상태 객체
- * @param {function} showToast - 토스트 메시지를 표시하는 함수
- * @returns {object} 영속성 관련 핸들러 함수들을 포함하는 객체
- */
 export const useStoryPersistence = (storyDataState, uiState, showToast) => {
-    // 데이터 상태 분리에 따른 변수 할당 수정
     const {
-        storyId, characters, lorebook, aiSettings, worldState, storyTitle, apiLog,
-        setStoryId, setStoryTitle, setMessages, setCharacters, setLorebook,
+        storyId, characters, contextSettings, aiSettings, worldState, storyTitle, apiLog, pinnedItems,
+        setStoryId, setStoryTitle, setMessages, setCharacters, setContextSettings,
         setAiSettings, setWorldState, setVectorIndices, setApiLog, setContextInfo,
-        setRetrievedMemories, setBlueprintTemplates, setCharacterTemplates, setStoryList
+        setRetrievedMemories, setBlueprintTemplates, setCharacterTemplates, setStoryList,
+        setPinnedItems
     } = storyDataState;
 
     const {
@@ -33,8 +27,8 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         setStoryId(null);
         setStoryTitle('');
         setMessages([]);
-        setCharacters([DEFAULT_PROTAGONIST]);
-        setLorebook(DEFAULT_LOREBOOK);
+        setCharacters([DEFAULT_USER]);
+        setContextSettings(DEFAULT_CONTEXT_SETTINGS);
         setAiSettings(DEFAULT_AI_SETTINGS);
         setWorldState(DEFAULT_WORLD_STATE);
         setVectorIndices({ scene: [], lore: [], character: [] });
@@ -42,10 +36,11 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         setContextInfo({ system: 0, world: 0, memory: 0, lore: 0, chat: 0, total: 0 });
         setRetrievedMemories([]);
         setPdChatHistory([]);
+        setPinnedItems([]);
     }, [
-        setStoryId, setStoryTitle, setMessages, setCharacters, setLorebook,
+        setStoryId, setStoryTitle, setMessages, setCharacters, setContextSettings,
         setAiSettings, setWorldState, setVectorIndices, setApiLog,
-        setContextInfo, setRetrievedMemories, setPdChatHistory
+        setContextInfo, setRetrievedMemories, setPdChatHistory, setPinnedItems,
     ]);
 
     const fetchStoryList = useCallback(async () => {
@@ -66,17 +61,34 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     const handleLoadStory = useCallback(async (id) => {
         if (!id) return;
         setIsLoading(true);
+        // [BUG FIX] 새 이야기를 불러오기 전에, 이전 이야기의 메시지 목록을 즉시 비웁니다.
+        // 이렇게 하면 UI가 즉시 초기화되어 이야기가 이어지는 것처럼 보이는 현상을 방지할 수 있습니다.
+        setMessages([]);
+        
         if (messageListenerUnsubscribe.current) {
             messageListenerUnsubscribe.current();
         }
         try {
             const data = await storyService.loadStory(id);
             if (data) {
-                setCharacters(data.characters || [DEFAULT_PROTAGONIST]);
-                setLorebook(data.lorebook || DEFAULT_LOREBOOK);
+                const loadedCharacters = (data.characters || [DEFAULT_USER]).map(char => {
+                    if (typeof char.dailySchedule === 'string') {
+                        try {
+                            return { ...char, dailySchedule: JSON.parse(char.dailySchedule) };
+                        } catch (e) {
+                            console.error(`Error parsing dailySchedule for character ${char.id}:`, e);
+                            return { ...char, dailySchedule: [] };
+                        }
+                    }
+                    return char;
+                });
+                setCharacters(loadedCharacters);
+                
+                setContextSettings({ ...DEFAULT_CONTEXT_SETTINGS, ...(data.contextSettings || {}) });
                 setAiSettings({ ...DEFAULT_AI_SETTINGS, ...(data.aiSettings || {}) });
-                setWorldState(data.worldState || DEFAULT_WORLD_STATE);
+                setWorldState({ ...DEFAULT_WORLD_STATE, ...(data.worldState || {}) });
                 setApiLog(data.apiLog || { summary: {}, log: [] });
+                setPinnedItems(data.pinnedItems || []);
 
                 const [scene, lore, character] = await Promise.all([
                     storyService.loadIndexCollection(id, 'sceneIndex'),
@@ -86,7 +98,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
                 setVectorIndices({ scene, lore, character });
 
                 setStoryId(id);
-                setStoryTitle(data.title || '제목 없는 이야기');
+                setStoryTitle(data.title || '제목 없는 장면');
                 localStorage.setItem('lastStoryId', id);
 
                 messageListenerUnsubscribe.current = storyService.listenToMessages(id, (loadedMessages) => {
@@ -94,21 +106,21 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
                 });
 
                 setPdChatHistory([]);
-                showToast(`'${data.title || '제목 없는 이야기'}' 이야기를 불러왔습니다.`);
+                showToast(`'${data.title || '제목 없는 장면'}'을(를) 불러왔습니다.`);
             } else {
                 localStorage.removeItem('lastStoryId');
                 resetToWelcome();
             }
         } catch (error) {
-            console.error("이야기 불러오기 오류:", error);
-            showToast("이야기 불러오기 중 오류 발생");
+            console.error("장면 불러오기 오류:", error);
+            showToast("장면 불러오기 중 오류 발생");
         } finally {
             setIsLoading(false);
         }
     }, [
-        resetToWelcome, showToast, setIsLoading, setCharacters, setLorebook,
+        resetToWelcome, showToast, setIsLoading, setCharacters, setContextSettings,
         setAiSettings, setWorldState, setApiLog, setVectorIndices,
-        setStoryId, setStoryTitle, setMessages, setPdChatHistory
+        setStoryId, setStoryTitle, setMessages, setPdChatHistory, setPinnedItems,
     ]);
 
     useEffect(() => {
@@ -127,24 +139,41 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
                 messageListenerUnsubscribe.current();
             }
         };
-    }, []); // 의존성 배열에서 일부 함수 제거하여 최초 1회만 실행되도록 수정
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); 
 
     const handleSaveStory = useCallback(async () => {
         if (!storyId) return;
         setIsProcessing(true);
         try {
-            const storyData = { characters, lorebook, aiSettings, title: storyTitle, worldState, apiLog };
+            const charactersToSave = JSON.parse(JSON.stringify(characters));
+            charactersToSave.forEach(char => {
+                if (Array.isArray(char.dailySchedule)) {
+                    char.dailySchedule = JSON.stringify(char.dailySchedule);
+                }
+            });
+
+            const storyData = { 
+                characters: charactersToSave, 
+                contextSettings, 
+                aiSettings, 
+                title: storyTitle, 
+                worldState, 
+                apiLog, 
+                pinnedItems 
+            };
             await storyService.saveStory(storyId, storyData);
             await fetchStoryList();
-            showToast(`'${storyTitle}' 이야기가 성공적으로 저장되었습니다!`);
+            showToast(`'${storyTitle}' 장면이 성공적으로 저장되었습니다!`);
         } catch (error) {
             showToast('저장 중 오류가 발생했습니다.');
         } finally {
             setIsProcessing(false);
         }
     }, [
-        storyId, characters, lorebook, aiSettings, worldState,
-        storyTitle, apiLog, fetchStoryList, setIsProcessing, showToast
+        storyId, characters, contextSettings, aiSettings, worldState,
+        storyTitle, apiLog, pinnedItems,
+        fetchStoryList, setIsProcessing, showToast
     ]);
 
     const handleDeleteStory = useCallback(async (idToDelete) => {
@@ -156,9 +185,9 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
                 localStorage.removeItem('lastStoryId');
                 resetToWelcome();
             }
-            showToast("이야기가 삭제되었습니다.");
+            showToast("장면이 삭제되었습니다.");
         } catch (error) {
-            console.error("이야기 삭제 오류:", error);
+            console.error("장면 삭제 오류:", error);
             showToast("삭제 중 오류가 발생했습니다.");
         } finally {
             setIsProcessing(false);
@@ -175,9 +204,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
             const templateData = {
                 id: Date.now().toString(),
                 name: templateName,
-                genre: lorebook.genre,
-                worldview: lorebook.worldview,
-                plot: lorebook.plot,
+                situation: contextSettings.situation,
             };
             await storyService.saveBlueprintTemplate(templateData);
             await fetchBlueprintTemplates();
@@ -187,7 +214,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         } finally {
             setIsProcessing(false);
         }
-    }, [lorebook, fetchBlueprintTemplates, setIsProcessing, showToast]);
+    }, [contextSettings, fetchBlueprintTemplates, setIsProcessing, showToast]);
     
     const handleDeleteBlueprintTemplate = useCallback(async (id) => {
         setIsProcessing(true);
@@ -204,36 +231,59 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
 
     const handleSaveCharacterTemplate = useCallback(async (characterData) => {
         if (!characterData || !characterData.name) {
-            showToast("템플릿으로 저장할 캐릭터 이름이 없습니다.");
+            showToast("템플릿으로 저장할 페르소나 이름이 없습니다.");
             return;
         }
         setIsProcessing(true);
         try {
-            const templateData = {
-                ...characterData,
-                id: Date.now().toString(),
-            };
-            await storyService.saveCharacterTemplate(templateData);
+            const templateToSave = JSON.parse(JSON.stringify(characterData));
+            if (Array.isArray(templateToSave.dailySchedule)) {
+                templateToSave.dailySchedule = JSON.stringify(templateToSave.dailySchedule);
+            }
+            templateToSave.id = Date.now().toString();
+
+            await storyService.saveCharacterTemplate(templateToSave);
             await fetchCharacterTemplates();
-            showToast(`'${characterData.name}' 캐릭터가 프리셋으로 저장되었습니다.`);
+            showToast(`'${characterData.name}' 페르소나가 프리셋으로 저장되었습니다.`);
         } catch (error) {
-            showToast("캐릭터 프리셋 저장 중 오류 발생");
+            showToast("페르소나 프리셋 저장 중 오류 발생");
         } finally {
             setIsProcessing(false);
         }
     }, [fetchCharacterTemplates, setIsProcessing, showToast]);
 
     const handleLoadCharacterTemplate = useCallback((template) => {
-        const newCharacter = {
-            ...template,
-            id: Date.now(),
-        };
-        if (characters.some(c => c.name === newCharacter.name)) {
-            showToast(`'${newCharacter.name}' 이름의 캐릭터가 이미 존재합니다.`);
-            return;
+        let loadedTemplate = { ...template };
+        if (typeof loadedTemplate.dailySchedule === 'string') {
+            try {
+                loadedTemplate.dailySchedule = JSON.parse(loadedTemplate.dailySchedule);
+            } catch (e) {
+                console.error(`Error parsing dailySchedule for template ${loadedTemplate.id}:`, e);
+                loadedTemplate.dailySchedule = [];
+            }
         }
-        setCharacters(prev => [...prev, newCharacter]);
-        showToast(`'${newCharacter.name}' 캐릭터를 불러왔습니다.`);
+
+        if (loadedTemplate.isUser) {
+            setCharacters(prev => prev.map(c => {
+                if (c.isUser) {
+                    return { ...loadedTemplate, id: c.id, isUser: true };
+                }
+                return c;
+            }));
+            showToast(`유저 '${loadedTemplate.name}' 프리셋을 불러왔습니다.`);
+        } else {
+            const newCharacter = {
+                ...loadedTemplate,
+                id: Date.now(),
+                isUser: false,
+            };
+            if (characters.some(c => c.name === newCharacter.name)) {
+                showToast(`'${newCharacter.name}' 이름의 페르소나가 이미 존재합니다.`);
+                return;
+            }
+            setCharacters(prev => [...prev, newCharacter]);
+            showToast(`페르소나 '${newCharacter.name}'를 불러왔습니다.`);
+        }
     }, [characters, setCharacters, showToast]);
 
     const handleDeleteCharacterTemplate = useCallback(async (id) => {
@@ -241,9 +291,9 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         try {
             await storyService.deleteCharacterTemplate(id);
             await fetchCharacterTemplates();
-            showToast("캐릭터 프리셋이 삭제되었습니다.");
+            showToast("페르소나 프리셋이 삭제되었습니다.");
         } catch (error) {
-            showToast("캐릭터 프리셋 삭제 중 오류 발생");
+            showToast("페르소나 프리셋 삭제 중 오류 발생");
         } finally {
             setIsProcessing(false);
         }

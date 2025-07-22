@@ -1,95 +1,166 @@
-/* --- Font Injection --- */
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=KoPub+Batang:wght@400;700&display=swap');
+/* ANIMA Story Studio - Redesigned Theme by H.S.A */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
-        /* --- Redesigned Digital Novel Design System --- */
-        :root {
-          /* Light Mode Palette */
-          --bg-light: #F4F4F5; /* Zinc 100 */
-          --panel-bg-light: #FFFFFF;
-          --panel-bg-alt-light: #F9FAFB; /* Gray 50 */
-          --input-bg-light: #FFFFFF;
-          --text-primary-light: #18181B; /* Zinc 900 */
-          --text-secondary-light: #71717A; /* Zinc 500 */
-          --border-light: #E4E4E7; /* Zinc 200 */
-          --accent-light: #4F46E5; /* Indigo 600 */
-          --accent-dark-light: #3730A3; /* Indigo 800 */
-          --accent-bg-light: #EEF2FF; /* Indigo 50 */
-          --accent-shadow-light: #4338ca40;
+:root {
+  /* Color Palette */
+  --bg-primary: #121212;        /* 가장 어두운 기본 배경 */
+  --bg-secondary: #1a1a1a;      /* 카드, 입력 필드 등 한 단계 밝은 배경 */
+  --bg-tertiary: #242424;       /* 호버, 활성 상태 등 더 밝은 배경 */
+  --panel-bg: #1e1e1e;          /* 캐릭터 시트 등 패널 배경 */
+  --panel-bg-alt: #2a2a2a;      /* 패널 내 아코디언 등 */
+  --input-bg: #2c2c2c;          /* 입력 필드 기본 배경 */
 
-          /* Dark Mode Palette */
-          --bg-dark: #18181B; /* Zinc 900 */
-          --panel-bg-dark: #27272A; /* Zinc 800 */
-          --panel-bg-alt-dark: #3F3F46; /* Zinc 700 */
-          --input-bg-dark: #27272A;
-          --text-primary-dark: #F4F4F5; /* Zinc 100 */
-          --text-secondary-dark: #A1A1AA; /* Zinc 400 */
-          --border-dark: #3F3F46; /* Zinc 700 */
-          --accent-dark: #818CF8; /* Indigo 400 */
-          --accent-dark-dark: #A78BFA; /* Violet 400 */
-          --accent-bg-dark: #3730a333; /* Indigo 800 with alpha */
-          --accent-shadow-dark: #6d28d940;
-          
-          /* Font Family Definitions */
-          --font-sans: 'Pretendard', sans-serif;
-          --font-serif: 'KoPub Batang', serif;
-          --font-mono: 'Menlo', 'Monaco', 'Consolas', monospace;
-        }
+  --border-primary: #333333;    /* 기본 테두리 */
+  --border-secondary: #444444;  /* 강조된 테두리 */
 
-        [data-theme='light'] {
-          --bg: var(--bg-light);
-          --panel-bg: var(--panel-bg-light);
-          --panel-bg-alt: var(--panel-bg-alt-light);
-          --input-bg: var(--input-bg-light);
-          --text-primary: var(--text-primary-light);
-          --text-secondary: var(--text-secondary-light);
-          --border: var(--border-light);
-          --accent: var(--accent-light);
-          --accent-dark: var(--accent-dark-light);
-          --accent-bg: var(--accent-bg-light);
-          --accent-shadow: var(--accent-shadow-light);
-        }
+  --text-primary: #e0e0e0;      /* 기본 텍스트 */
+  --text-secondary: #a0a0a0;    /* 보조 텍스트, 설명 */
+  --text-disabled: #666666;     /* 비활성 텍스트 */
 
-        [data-theme='dark'] {
-          --bg: var(--bg-dark);
-          --panel-bg: var(--panel-bg-dark);
-          --panel-bg-alt: var(--panel-bg-alt-dark);
-          --input-bg: var(--input-bg-dark);
-          --text-primary: var(--text-primary-dark);
-          --text-secondary: var(--text-secondary-dark);
-          --border: var(--border-dark);
-          --accent: var(--accent-dark);
-          --accent-dark: var(--accent-dark-dark);
-          --accent-bg: var(--accent-bg-dark);
-          --accent-shadow: var(--accent-shadow-dark);
-        }
+  --accent-primary: #8A2BE2;    /* BlueViolet - 메인 강조색 */
+  --accent-secondary: #9932CC;  /* MediumOrchid - 보조 강조색 */
+  --accent-shadow: rgba(138, 43, 226, 0.25);
 
-        body {
-          background-color: var(--bg);
-          color: var(--text-primary);
-          font-family: var(--font-sans);
-          transition: background-color 0.3s ease, color 0.3s ease;
-          overflow: hidden;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-        }
-        
-        .panel-ui {
-          background-color: var(--panel-bg);
-          border-color: var(--border);
-          transition: background-color 0.3s ease, border-color 0.3s ease;
-        }
+  --danger: #E53E3E;            /* 삭제, 경고 등 위험 요소 */
+  --success: #38A169;           /* 성공, 저장 등 긍정 요소 */
+  --warning: #D69E2E;           /* 경고, 미저장 등 주의 요소 */
 
-        /* --- Custom Scrollbar --- */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background-color: var(--text-secondary); }
+  /* Typography */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Georgia', 'Times New Roman', serif; /* 서사 텍스트용 */
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 
-        /* --- Keyframe Animations --- */
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes toast-fade { 0% { opacity: 0; transform: translateY(20px); } 10% { opacity: 1; transform: translateY(0); } 90% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(20px); } }
+  /* Effects */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+}
 
-        /* --- Animation Classes --- */
-        .animate-fadeIn { animation: fadeIn 0.4s ease-in-out forwards; }
-        .animate-toast { animation: toast-fade 3s ease-in-out forwards; }
+/* Base Styles */
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* App Layout */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  transition: all 0.3s ease-in-out;
+}
+
+.control-tower-sidebar {
+  width: 380px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.main-view-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--bg-primary);
+}
+
+/* Responsive Layout */
+@media (max-width: 768px) {
+  .control-tower-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    width: 85%;
+    max-width: 380px;
+    z-index: 100;
+  }
+
+  .app-layout.sidebar-open .control-tower-sidebar {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .main-view-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+  }
+
+  .app-layout.sidebar-open .main-view-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-primary);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--border-secondary);
+}
+
+/* General UI Element Styling */
+.panel-ui {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-toast {
+  animation: toast-in 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}

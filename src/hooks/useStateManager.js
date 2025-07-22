@@ -1,21 +1,16 @@
 import { useState } from 'react';
 import { 
-    DEFAULT_PROTAGONIST, 
-    DEFAULT_LOREBOOK, 
+    DEFAULT_USER, 
+    DEFAULT_CONTEXT_SETTINGS, 
     DEFAULT_AI_SETTINGS, 
     DEFAULT_WORLD_STATE 
 } from '../constants/defaults';
 
-/**
- * 애플리케이션의 모든 핵심 상태(State)를 관리하는 커스텀 훅입니다.
- * 이 훅은 상태를 선언하고, 상태를 '데이터'와 'UI' 두 그룹으로 나누어 반환합니다.
- * @returns {object} storyDataState와 uiState 객체를 포함하는 객체
- */
 export const useStateManager = () => {
-  // --- 이야기의 핵심 데이터 상태 (StoryData) ---
+  // --- Story Data States (이야기의 핵심 데이터) ---
   const [messages, setMessages] = useState([]);
-  const [characters, setCharacters] = useState([DEFAULT_PROTAGONIST]);
-  const [lorebook, setLorebook] = useState(DEFAULT_LOREBOOK);
+  const [characters, setCharacters] = useState([DEFAULT_USER]);
+  const [contextSettings, setContextSettings] = useState(DEFAULT_CONTEXT_SETTINGS);
   const [aiSettings, setAiSettings] = useState(DEFAULT_AI_SETTINGS);
   const [worldState, setWorldState] = useState(DEFAULT_WORLD_STATE);
   const [storyId, setStoryId] = useState(null);
@@ -27,8 +22,9 @@ export const useStateManager = () => {
   const [retrievedMemories, setRetrievedMemories] = useState([]);
   const [blueprintTemplates, setBlueprintTemplates] = useState([]);
   const [characterTemplates, setCharacterTemplates] = useState([]);
+  const [pinnedItems, setPinnedItems] = useState([]);
 
-  // --- UI 및 상호작용 관련 상태 (UIState) ---
+  // --- UI States (사용자 인터페이스 상태) ---
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '' });
@@ -38,11 +34,16 @@ export const useStateManager = () => {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isCharacterTemplateModalOpen, setIsCharacterTemplateModalOpen] = useState(false);
   const [characterToSave, setCharacterToSave] = useState(null);
+  const [latestEmotionAnalysis, setLatestEmotionAnalysis] = useState(null);
+  const [editingState, setEditingState] = useState({ isOpen: false, type: null, characterId: null });
+  // [FEATURE] 열려있는 페르소나 현황 창 ID 목록을 관리하는 상태 추가
+  const [floatingStatusWindows, setFloatingStatusWindows] = useState([]);
+
 
   const storyDataState = {
     messages, setMessages,
     characters, setCharacters,
-    lorebook, setLorebook,
+    contextSettings, setContextSettings,
     aiSettings, setAiSettings,
     worldState, setWorldState,
     storyId, setStoryId,
@@ -54,6 +55,7 @@ export const useStateManager = () => {
     retrievedMemories, setRetrievedMemories,
     blueprintTemplates, setBlueprintTemplates,
     characterTemplates, setCharacterTemplates,
+    pinnedItems, setPinnedItems,
   };
 
   const uiState = {
@@ -66,6 +68,10 @@ export const useStateManager = () => {
     isTemplateModalOpen, setIsTemplateModalOpen,
     isCharacterTemplateModalOpen, setIsCharacterTemplateModalOpen,
     characterToSave, setCharacterToSave,
+    latestEmotionAnalysis, setLatestEmotionAnalysis,
+    editingState, setEditingState,
+    // [FEATURE] 새 상태와 세터 함수를 UI 상태 객체에 포함
+    floatingStatusWindows, setFloatingStatusWindows,
   };
 
   return { storyDataState, uiState };
