@@ -14,10 +14,37 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     } = storyDataState;
 
     const {
-        setIsLoading, setIsProcessing, setPdChatHistory
+        isProcessing, 
+        setIsLoading, 
+        setIsProcessing, 
+        setPdChatHistory
     } = uiState;
 
     const messageListenerUnsubscribe = useRef(null);
+
+    const prepareCharactersForSave = (characterArray) => {
+        return JSON.parse(JSON.stringify(characterArray)).map(char => {
+            if (Array.isArray(char.dailySchedule)) {
+                char.dailySchedule = JSON.stringify(char.dailySchedule);
+            }
+            return char;
+        });
+    };
+
+    const parseCharactersAfterLoad = (characterArray) => {
+        return (characterArray || [DEFAULT_USER]).map(char => {
+            if (typeof char.dailySchedule === 'string') {
+                try {
+                    return { ...char, dailySchedule: JSON.parse(char.dailySchedule) };
+                } catch (e) {
+                    console.error(`Error parsing dailySchedule for character ${char.id}:`, e);
+                    return { ...char, dailySchedule: [] };
+                }
+            }
+            return char;
+        });
+    };
+
 
     const resetToWelcome = useCallback(() => {
         if (messageListenerUnsubscribe.current) {
@@ -33,7 +60,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         setWorldState(DEFAULT_WORLD_STATE);
         setVectorIndices({ scene: [], lore: [], character: [] });
         setApiLog({ summary: {}, log: [] });
-        setContextInfo({ system: 0, world: 0, memory: 0, lore: 0, chat: 0, total: 0 });
+        setContextInfo({ system: 0, worldview: 0, world: 0, memory: 0, lore: 0, chat: 0, total: 0 });
         setRetrievedMemories([]);
         setPdChatHistory([]);
         setPinnedItems([]);
@@ -61,8 +88,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     const handleLoadStory = useCallback(async (id) => {
         if (!id) return;
         setIsLoading(true);
-        // [BUG FIX] 새 이야기를 불러오기 전에, 이전 이야기의 메시지 목록을 즉시 비웁니다.
-        // 이렇게 하면 UI가 즉시 초기화되어 이야기가 이어지는 것처럼 보이는 현상을 방지할 수 있습니다.
         setMessages([]);
         
         if (messageListenerUnsubscribe.current) {
@@ -71,20 +96,15 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         try {
             const data = await storyService.loadStory(id);
             if (data) {
-                const loadedCharacters = (data.characters || [DEFAULT_USER]).map(char => {
-                    if (typeof char.dailySchedule === 'string') {
-                        try {
-                            return { ...char, dailySchedule: JSON.parse(char.dailySchedule) };
-                        } catch (e) {
-                            console.error(`Error parsing dailySchedule for character ${char.id}:`, e);
-                            return { ...char, dailySchedule: [] };
-                        }
-                    }
-                    return char;
-                });
+                const loadedCharacters = parseCharactersAfterLoad(data.characters);
                 setCharacters(loadedCharacters);
                 
-                setContextSettings({ ...DEFAULT_CONTEXT_SETTINGS, ...(data.contextSettings || {}) });
+                const loadedContextSettings = { ...DEFAULT_CONTEXT_SETTINGS, ...(data.contextSettings || {}) };
+                if (!loadedContextSettings.worldview) {
+                    loadedContextSettings.worldview = DEFAULT_CONTEXT_SETTINGS.worldview;
+                }
+
+                setContextSettings(loadedContextSettings);
                 setAiSettings({ ...DEFAULT_AI_SETTINGS, ...(data.aiSettings || {}) });
                 setWorldState({ ...DEFAULT_WORLD_STATE, ...(data.worldState || {}) });
                 setApiLog(data.apiLog || { summary: {}, log: [] });
@@ -146,13 +166,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         if (!storyId) return;
         setIsProcessing(true);
         try {
-            const charactersToSave = JSON.parse(JSON.stringify(characters));
-            charactersToSave.forEach(char => {
-                if (Array.isArray(char.dailySchedule)) {
-                    char.dailySchedule = JSON.stringify(char.dailySchedule);
-                }
-            });
-
+            const charactersToSave = prepareCharactersForSave(characters);
             const storyData = { 
                 characters: charactersToSave, 
                 contextSettings, 
@@ -194,6 +208,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         }
     }, [storyId, fetchStoryList, resetToWelcome, setIsProcessing, showToast]);
 
+    // [FIX] 템플릿 저장 시 situation만 저장하는 대신 contextSettings 전체를 저장하도록 수정합니다.
     const handleSaveBlueprintTemplate = useCallback(async (templateName) => {
         if (!templateName.trim()) {
             showToast("템플릿 이름을 입력해주세요.");
@@ -204,7 +219,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
             const templateData = {
                 id: Date.now().toString(),
                 name: templateName,
-                situation: contextSettings.situation,
+                contextSettings: contextSettings, // 이 부분이 핵심 수정사항입니다.
             };
             await storyService.saveBlueprintTemplate(templateData);
             await fetchBlueprintTemplates();
@@ -236,10 +251,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         }
         setIsProcessing(true);
         try {
-            const templateToSave = JSON.parse(JSON.stringify(characterData));
-            if (Array.isArray(templateToSave.dailySchedule)) {
-                templateToSave.dailySchedule = JSON.stringify(templateToSave.dailySchedule);
-            }
+            const templateToSave = prepareCharactersForSave([characterData])[0];
             templateToSave.id = Date.now().toString();
 
             await storyService.saveCharacterTemplate(templateToSave);
@@ -253,15 +265,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     }, [fetchCharacterTemplates, setIsProcessing, showToast]);
 
     const handleLoadCharacterTemplate = useCallback((template) => {
-        let loadedTemplate = { ...template };
-        if (typeof loadedTemplate.dailySchedule === 'string') {
-            try {
-                loadedTemplate.dailySchedule = JSON.parse(loadedTemplate.dailySchedule);
-            } catch (e) {
-                console.error(`Error parsing dailySchedule for template ${loadedTemplate.id}:`, e);
-                loadedTemplate.dailySchedule = [];
-            }
-        }
+        const loadedTemplate = parseCharactersAfterLoad([template])[0];
 
         if (loadedTemplate.isUser) {
             setCharacters(prev => prev.map(c => {
@@ -298,6 +302,31 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
             setIsProcessing(false);
         }
     }, [fetchCharacterTemplates, setIsProcessing, showToast]);
+    
+    const handleNewScene = useCallback(async () => {
+        if (isProcessing) return;
+        setIsProcessing(true);
+        try {
+            const [hour, minute] = contextSettings.startTime.split(':').map(Number);
+            const initialWorldState = { day: 1, hour: isNaN(hour) ? 9 : hour, minute: isNaN(minute) ? 0 : minute, weather: contextSettings.startWeather || '실내' };
+            
+            const charactersToSave = prepareCharactersForSave(characters);
+            
+            const newStoryData = { title: "새로운 장면", characters: charactersToSave, contextSettings, aiSettings, worldState: initialWorldState, apiLog, pinnedItems };
+            const newId = await storyService.createNewStory(newStoryData);
+            
+            await fetchStoryList();
+            await handleLoadStory(newId);
+            
+            return newId;
+
+        } catch (error) {
+            showToast(`새 장면 생성 실패: ${error.message}`, 'error');
+            setIsProcessing(false);
+            return null;
+        }
+    }, [isProcessing, characters, contextSettings, aiSettings, apiLog, pinnedItems, fetchStoryList, handleLoadStory, showToast, setIsProcessing]);
+
 
     return { 
         handleSaveStory, 
@@ -311,5 +340,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         handleLoadCharacterTemplate,
         handleDeleteCharacterTemplate,
         fetchCharacterTemplates,
+        handleNewScene,
     };
 };

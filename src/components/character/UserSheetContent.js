@@ -8,9 +8,9 @@ import { UserSheet } from './UserSheet';
 const formatUserToText = (character) => {
     let output = `≡≡≡ 유저 프로필: ${character.name} ≡≡≡\n\n`;
     output += `--- 기본 정보 ---\n`;
-    output += `이름: ${character.name}\n`;
-    output += `외형: ${character.appearance}\n`;
-    output += `유저 노트: ${character.note}\n`;
+    output += `이름: ${character.name || ''}\n`;
+    output += `외형: ${character.appearance || ''}\n`;
+    output += `유저 컨셉: ${character.Concept || ''}\n`;
     return output;
 };
 
@@ -52,12 +52,12 @@ export const UserSheetContent = ({ character, onUpdate, onClose }) => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `${localCharacter.name}_profile.txt`;
+            link.download = `${localCharacter.name || 'User'}_profile.txt`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            showToast(`${localCharacter.name}의 프로필을 내보냈습니다.`, 'success');
+            showToast(`${localCharacter.name || '유저'}의 프로필을 내보냈습니다.`, 'success');
         } catch (error) {
             console.error("프로필 내보내기 오류:", error);
             showToast("프로필을 내보내는 중 오류가 발생했습니다.", 'error');

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useStoryContext } from '../../contexts/StoryProvider';
 import { updateNestedState } from '../../utils/stateUtils';
 import { SheetHeader } from './SheetHeader';
-import { NpcSheet } from './NpcSheet';
+import { NpcSheet } from './PersonaSheet';
 
 // [FEATURE] 캐릭터 데이터를 텍스트로 변환하는 헬퍼 함수
 const formatCharacterToText = (character, allCharacters) => {
@@ -31,7 +31,7 @@ const formatCharacterToText = (character, allCharacters) => {
         '나이': character.age,
         '직업': character.job,
         '외형': character.appearance,
-        '생성 컨셉': character.generationConcept,
+        '생성 컨셉': character.Concept,
     });
 
     output += formatSection('서사적 프로필', {

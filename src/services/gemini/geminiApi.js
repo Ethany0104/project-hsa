@@ -44,7 +44,8 @@ export const callGeminiApi = async (payload, model, task = 'generateContent') =>
   }
 };
 
-export const createApiLogEntry = (functionName, model, usage) => {
+// [BUG FIX] createApiLogEntry 함수가 네 번째 인자로 'prompt' 텍스트를 받도록 수정합니다.
+export const createApiLogEntry = (functionName, model, usage, prompt = '') => {
   const { promptTokenCount = 0, candidatesTokenCount = 0, totalTokenCount = 0 } = usage || {};
   return {
       id: Date.now(),
@@ -54,6 +55,7 @@ export const createApiLogEntry = (functionName, model, usage) => {
       promptTokens: promptTokenCount,
       candidateTokens: candidatesTokenCount,
       totalTokens: totalTokenCount,
+      prompt, // prompt를 로그 객체에 포함시킵니다.
   };
 };
 

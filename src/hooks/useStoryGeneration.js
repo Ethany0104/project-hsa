@@ -1,6 +1,6 @@
 // --- Start of file: hooks/useStoryGeneration.js ---
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { geminiApi, utilityGenerator, storyOrchestrator, storyService } from '../services';
 
 const MAX_EMBEDDING_TEXT_LENGTH = 4000;
@@ -22,12 +22,13 @@ const cosineSimilarity = (vecA, vecB) => {
 export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLogEntry, persistenceHandlers) => {
     const {
         messages, characters, contextSettings, aiSettings, worldState, storyId, vectorIndices,
-        setCharacters, setWorldState, setStoryTitle, setVectorIndices, setRetrievedMemories, setContextInfo,
-        apiLog, pinnedItems,
+        setMessages, setCharacters, setWorldState, setStoryTitle, setVectorIndices, setRetrievedMemories, setContextInfo,
     } = storyDataState;
 
     const { isProcessing, setIsProcessing, setLatestEmotionAnalysis } = uiState;
-    const { fetchStoryList, handleLoadStory } = persistenceHandlers;
+    const { fetchStoryList, handleNewScene: persistenceHandleNewScene } = persistenceHandlers;
+
+    const abortControllerRef = useRef(null);
 
     const _addEntryToIndex = useCallback(async (indexName, entry, currentStoryId) => {
         if (!currentStoryId || !entry || !indexName) return;
@@ -63,16 +64,18 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
         return scoredItems.slice(0, topK);
     }, [vectorIndices]);
 
-    const _orchestrateStoryGeneration = useCallback(async (promptType, content, currentStoryId, overrideWorldState = null) => {
+    const _orchestrateStoryGeneration = useCallback(async (promptType, content, currentHistory, currentStoryId, overrideWorldState = null) => {
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+
         setIsProcessing(true);
         setRetrievedMemories([]);
         
         try {
-            if (promptType === 'send' || promptType === 'intervene') {
-                await storyService.addMessage(currentStoryId, content);
+            if (promptType === 'send' || promptType === 'intervene' || promptType === 'resend') {
+                // 임시 메시지를 상태에 추가 (UI 피드백용)
+                setMessages(prev => [...prev, content]);
             }
-            
-            let currentHistory = (promptType === 'new_scene') ? [] : [...messages, content];
             
             const effectiveWorldState = overrideWorldState || worldState;
 
@@ -80,117 +83,174 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
                 const TOTAL_BUDGET = aiSettings.maxContextTokens * 0.95; 
                 const retrievedItems = await searchVectorIndices(queryText, aiSettings.retrievalTopK);
                 const retrievedContext = retrievedItems.map(item => item.text);
-                const [systemTokens, worldTokens, memoryTokens, loreTokens] = await Promise.all([
-                    geminiApi.countTokens(aiSettings.systemInstruction),
-                    geminiApi.countTokens(JSON.stringify({ situation: contextSettings.situation })),
-                    geminiApi.countTokens(retrievedContext.join('\n\n')),
-                    geminiApi.countTokens(JSON.stringify(currentCharacters.map(({profileImageUrl, ...rest}) => rest))),
+
+                const worldviewText = `
+### 세계관 설정 (Worldview)
+- 장르: ${contextSettings.worldview?.genre || '미설정'}
+- 상세: ${contextSettings.worldview?.details || '미설정'}
+- 핵심 규칙: ${(contextSettings.worldview?.rules || []).map(r => `- ${r.keyword}: ${r.description}`).join('\\n') || '미설정'}
+`;
+
+                const [systemTokens, worldviewTokens, worldTokens, memoryTokens, loreTokens] = await Promise.all([
+                    geminiApi.countTokens(aiSettings.systemInstruction, aiSettings.mainModel, signal),
+                    geminiApi.countTokens(worldviewText, aiSettings.mainModel, signal),
+                    geminiApi.countTokens(JSON.stringify({ situation: contextSettings.situation }), aiSettings.mainModel, signal),
+                    geminiApi.countTokens(retrievedContext.join('\\n\\n'), aiSettings.mainModel, signal),
+                    geminiApi.countTokens(JSON.stringify(currentCharacters.map(({profileImageUrl, ...rest}) => rest)), aiSettings.mainModel, signal),
                 ]);
-                const fixedContextTokens = systemTokens + worldTokens + memoryTokens + loreTokens;
+                const fixedContextTokens = systemTokens + worldviewTokens + worldTokens + memoryTokens + loreTokens;
                 const HISTORY_BUDGET = TOTAL_BUDGET - fixedContextTokens;
 
                 if (HISTORY_BUDGET <= 0) throw new Error("고정 컨텍스트가 너무 큽니다.");
                 
                 let shortTermMemory = history.slice(-aiSettings.shortTermMemoryTurns);
-                let historyTokens = shortTermMemory.length > 0 ? await geminiApi.countTokens(JSON.stringify(shortTermMemory)) : 0;
+                let historyTokens = shortTermMemory.length > 0 ? await geminiApi.countTokens(JSON.stringify(shortTermMemory), aiSettings.mainModel, signal) : 0;
                 while (historyTokens > HISTORY_BUDGET && shortTermMemory.length > 1) {
                     shortTermMemory.shift();
-                    historyTokens = await geminiApi.countTokens(JSON.stringify(shortTermMemory));
+                    historyTokens = await geminiApi.countTokens(JSON.stringify(shortTermMemory), aiSettings.mainModel, signal);
                 }
                 
-                const contextTokenInfo = { system: systemTokens, world: worldTokens, memory: memoryTokens, lore: loreTokens, chat: historyTokens, total: fixedContextTokens + historyTokens };
-                return { shortTermMemory, retrievedItems, contextTokenInfo };
+                const contextTokenInfo = { system: systemTokens, worldview: worldviewTokens, world: worldTokens, memory: memoryTokens, lore: loreTokens, chat: historyTokens, total: fixedContextTokens + historyTokens };
+                return { shortTermMemory, retrievedItems, contextTokenInfo, worldviewText };
             };
 
-            const queryText = (promptType === 'send' || promptType === 'reroll' || promptType === 'intervene') ? content.text : JSON.stringify(content);
-            const { shortTermMemory, retrievedItems, contextTokenInfo } = await _getContextData(queryText, currentHistory, characters);
+            const queryText = (promptType === 'send' || promptType === 'reroll' || promptType === 'intervene' || promptType === 'resend') ? content.text : JSON.stringify(content);
+            const { shortTermMemory, retrievedItems, contextTokenInfo, worldviewText } = await _getContextData(queryText, currentHistory, characters);
             setContextInfo(contextTokenInfo);
             setRetrievedMemories(retrievedItems);
 
-            const storyData = { characters, contextSettings, aiSettings, worldState: effectiveWorldState };
+            const storyData = { characters, contextSettings, aiSettings, worldState: effectiveWorldState, worldviewText };
             const retrievedContext = retrievedItems.map(item => item.text);
-            const { data: aiResultData, logEntry: mainLog } = await storyOrchestrator.generateResponse(storyData, promptType, content, shortTermMemory, retrievedContext);
-            addApiLogEntry(mainLog);
-
-            let aiResponse;
-            if (aiResultData.style === 'Chat') {
-                aiResponse = { id: Date.now() + 1, sender: 'ai', style: 'Chat', text: aiResultData.response || "", ...(aiResultData.title && { title: aiResultData.title }), isSummarized: false };
-            } else {
-                aiResponse = { id: Date.now() + 1, sender: 'ai', style: 'Novel', content: aiResultData.content || [], ...(aiResultData.title && { title: aiResultData.title }), isSummarized: false };
-            }
             
-            await storyService.addMessage(currentStoryId, aiResponse);
+            const { data: aiResultData, logEntry } = await storyOrchestrator.generateResponse(storyData, promptType, content, shortTermMemory, retrievedContext, signal);
+            addApiLogEntry(logEntry);
 
-            const responseContent = aiResponse.style === 'Novel' ? aiResponse.content : aiResponse.text;
-            const recentEventsText = Array.isArray(responseContent) ? responseContent.map(c => c.text || c.line).join(' ') : responseContent;
+            const finalUserMessage = { ...content, status: 'sent', id: Date.now() };
+
+            const finalAiMessage = { 
+                id: Date.now() + 1, 
+                sender: 'ai', 
+                style: aiResultData.style, 
+                // [FIX] 채팅 모드와 소설 모드의 데이터 구조가 다르므로, content를 그대로 할당합니다.
+                // 채팅 모드: string, 소설 모드: array
+                content: aiResultData.content, 
+                // [FIX] 채팅 모드에서는 title이 없으므로 optional chaining을 사용합니다.
+                ...(aiResultData.title && { title: aiResultData.title }), 
+                isSummarized: false,
+                status: 'sent'
+            };
+            
+            setMessages(prev => [...prev.filter(m => m.id !== content.id), finalAiMessage]);
+            
+            if (promptType !== 'reroll') {
+                await storyService.addMessage(currentStoryId, finalUserMessage);
+            }
+            await storyService.addMessage(currentStoryId, finalAiMessage);
+
+            // --- 후처리 로직 ---
+            const responseContentForPostProcessing = finalAiMessage.content;
+            // [BUG FIX] 채팅 모드에서는 content가 문자열이므로, 이를 직접 recentEventsText로 사용합니다.
+            const recentEventsText = Array.isArray(responseContentForPostProcessing) 
+                ? responseContentForPostProcessing.map(c => c.text || c.line).join(' ') 
+                : (typeof responseContentForPostProcessing === 'string' ? responseContentForPostProcessing : "");
             
             let finalWorldState = effectiveWorldState;
-            // [LOGIC CHANGE] AI 응답 내용을 기반으로 시간 흐름을 계산합니다.
             if (promptType !== 'new_scene' && recentEventsText) {
-                const { data: timeData, logEntry: timeLog } = await utilityGenerator.deduceTime(recentEventsText, finalWorldState, aiSettings.auxModel);
-                addApiLogEntry(timeLog);
-                const { elapsedMinutes, weather } = timeData;
-                let newMinute = Math.round(finalWorldState.minute + elapsedMinutes);
-                let newHour = finalWorldState.hour + Math.floor(newMinute / 60);
-                newMinute %= 60;
-                let newDay = finalWorldState.day + Math.floor(newHour / 24);
-                newHour %= 24;
-                finalWorldState = { day: newDay, hour: newHour, minute: newMinute, weather: weather || finalWorldState.weather };
-                setWorldState(finalWorldState);
+                try {
+                    const { data: timeData, logEntry: timeLog } = await utilityGenerator.deduceTime(recentEventsText, finalWorldState, aiSettings.auxModel, signal);
+                    addApiLogEntry(timeLog);
+                    const { elapsedMinutes, weather } = timeData;
+                    let newMinute = Math.round(finalWorldState.minute + elapsedMinutes);
+                    let newHour = finalWorldState.hour + Math.floor(newMinute / 60);
+                    newMinute %= 60;
+                    let newDay = finalWorldState.day + Math.floor(newHour / 24);
+                    newHour %= 24;
+                    finalWorldState = { day: newDay, hour: newHour, minute: newMinute, weather: weather || finalWorldState.weather };
+                    setWorldState(finalWorldState);
+                } catch (e) {
+                    console.error("시간 추론 후처리 실패:", e);
+                }
             }
-
-            const activeNpcNames = new Set(Array.isArray(responseContent) ? responseContent.filter(c => c.type === 'dialogue' && c.character).map(c => c.character.trim()) : []);
             
-            const charactersWithNewGoals = await Promise.all(characters.map(async (char) => {
-                if (!char.isUser && activeNpcNames.has(char.name.trim())) {
-                    try {
-                        const { data, logEntry } = await utilityGenerator.updatePersonalGoals(char, recentEventsText, aiSettings.auxModel);
-                        addApiLogEntry(logEntry);
-                        return { ...char, goals: data.goals };
-                    } catch (goalError) { console.error(`${char.name}의 목표 업데이트 오류:`, goalError); }
-                }
-                return char;
-            }));
-            
-            let emotionAnalysesForState = {};
-            const charactersWithEmotion = await Promise.all(charactersWithNewGoals.map(async (char) => {
-                if (!char.isUser) {
-                    try {
-                        const historyForEmotion = [...currentHistory, aiResponse].slice(-4);
-                        const { data, logEntry } = await utilityGenerator.analyzeEmotion(char, contextSettings.situation, historyForEmotion, aiSettings.auxModel);
-                        addApiLogEntry(logEntry);
-                        emotionAnalysesForState[char.id] = data;
-                    } catch (e) { console.error(`${char.name} 감정 분석 실패:`, e); }
-                }
-                return char;
-            }));
-            setLatestEmotionAnalysis(emotionAnalysesForState);
-            setCharacters(charactersWithEmotion);
+            let charactersWithUpdates = [...characters];
+            if (aiSettings.enableDynamicEvaluation) {
+                const activeNpcNames = new Set(Array.isArray(responseContentForPostProcessing) ? responseContentForPostProcessing.filter(c => c.type === 'dialogue' && c.character).map(c => c.character.trim()) : []);
+                
+                const goalPromises = characters.map(async (char) => {
+                    if (!char.isUser && activeNpcNames.has(char.name.trim())) {
+                        try {
+                            const { data, logEntry } = await utilityGenerator.updatePersonalGoals(char, recentEventsText, aiSettings.auxModel, signal);
+                            addApiLogEntry(logEntry);
+                            return { ...char, goals: data.goals };
+                        } catch (goalError) { console.error(`${char.name}의 목표 업데이트 오류:`, goalError); }
+                    }
+                    return char;
+                });
+                charactersWithUpdates = await Promise.all(goalPromises);
+                
+                let emotionAnalysesForState = {};
+                const emotionPromises = charactersWithUpdates.map(async (char) => {
+                    if (!char.isUser) {
+                        try {
+                            const historyForEmotion = [...currentHistory, finalAiMessage].slice(-4);
+                            const { data, logEntry } = await utilityGenerator.analyzeEmotion(char, contextSettings.situation, historyForEmotion, aiSettings.auxModel, signal);
+                            addApiLogEntry(logEntry);
+                            emotionAnalysesForState[char.id] = data;
+                        } catch (e) { console.error(`${char.name} 감정 분석 실패:`, e); }
+                    }
+                });
+                await Promise.all(emotionPromises);
+                setLatestEmotionAnalysis(emotionAnalysesForState);
+            } else {
+                charactersWithUpdates = characters.map(char => ({ ...char, goals: { primaryGoal: '', alternativeGoal: '' } }));
+                setLatestEmotionAnalysis(null);
+            }
+            setCharacters(charactersWithUpdates);
 
-            if (promptType === 'new_scene' && aiResponse.title) {
-                setStoryTitle(aiResponse.title);
-                await storyService.saveStory(currentStoryId, { title: aiResponse.title });
+
+            if (promptType === 'new_scene' && finalAiMessage.title) {
+                setStoryTitle(finalAiMessage.title);
+                await storyService.saveStory(currentStoryId, { title: finalAiMessage.title });
                 await fetchStoryList();
             }
 
-            await _addEntryToIndex('sceneIndex', { id: `L0_${aiResponse.id}`, text: `[과거 장면] ${recentEventsText}`, level: 0, source_ids: [aiResponse.id.toString()] }, currentStoryId);
+            await _addEntryToIndex('sceneIndex', { id: `L0_${finalAiMessage.id}`, text: `[과거 장면] ${recentEventsText}`, level: 0, source_ids: [finalAiMessage.id.toString()] }, currentStoryId);
             
-            const charactersToSave = JSON.parse(JSON.stringify(charactersWithEmotion));
-            charactersToSave.forEach(char => { if (Array.isArray(char.dailySchedule)) char.dailySchedule = JSON.stringify(char.dailySchedule); });
+            const charactersToSave = JSON.parse(JSON.stringify(charactersWithUpdates));
+            if (Array.isArray(charactersToSave.dailySchedule)) {
+                charactersToSave.dailySchedule = JSON.stringify(charactersToSave.dailySchedule);
+            }
             await storyService.saveStory(currentStoryId, { characters: charactersToSave, worldState: finalWorldState });
 
+
         } catch (error) {
-            showToast(`AI 응답 생성 실패: ${error.message}`, 'error');
+            console.error("[CRITICAL] _orchestrateStoryGeneration에서 처리되지 않은 예외 발생:", error);
+            setMessages(prev => prev.filter(m => m.id !== content.id));
+            if (error.name === 'AbortError') {
+                showToast("AI 응답 생성을 취소했습니다.", "default");
+            } else {
+                showToast(`치명적인 오류 발생: ${error.message}`, 'error');
+            }
         } finally {
             setIsProcessing(false);
+            abortControllerRef.current = null;
         }
-    }, [messages, characters, contextSettings, aiSettings, worldState, searchVectorIndices, _addEntryToIndex, fetchStoryList, addApiLogEntry, setIsProcessing, setRetrievedMemories, setContextInfo, setWorldState, setCharacters, setStoryTitle, showToast, setLatestEmotionAnalysis]);
+    }, [characters, contextSettings, aiSettings, worldState, searchVectorIndices, _addEntryToIndex, fetchStoryList, addApiLogEntry, setIsProcessing, setRetrievedMemories, setContextInfo, setWorldState, setCharacters, setStoryTitle, showToast, setLatestEmotionAnalysis, setMessages]);
 
     const handleSendMessage = useCallback((text) => {
         if (!text.trim() || isProcessing || !storyId) return;
-        const userMessage = { id: Date.now(), sender: 'player', text: text.trim(), isSummarized: false };
-        _orchestrateStoryGeneration('send', userMessage, storyId);
-    }, [isProcessing, _orchestrateStoryGeneration, storyId]);
+        const tempMessage = { id: `temp_${Date.now()}`, sender: 'player', text: text.trim(), isSummarized: false, status: 'pending' };
+        const newHistory = [...messages]; 
+        _orchestrateStoryGeneration('send', tempMessage, newHistory, storyId);
+    }, [isProcessing, storyId, messages, _orchestrateStoryGeneration]);
+
+    const handleResend = useCallback((message) => {
+        if (!message || isProcessing || !storyId) return;
+        showToast("마지막 입력을 다시 전송합니다...");
+        const tempMessage = { ...message, id: `temp_${Date.now()}`, status: 'pending' };
+        const historyWithoutFailed = messages.filter(m => m.id !== message.id);
+        _orchestrateStoryGeneration('resend', tempMessage, historyWithoutFailed, storyId);
+    }, [isProcessing, storyId, messages, _orchestrateStoryGeneration, showToast]);
 
     const handleReroll = useCallback(async () => {
         if (isProcessing || !storyId) return;
@@ -199,68 +259,72 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
         const lastAiMessage = messages[lastAiMessageIndex];
         const lastPlayerMessage = messages.slice(0, lastAiMessageIndex).findLast(msg => msg.sender === 'player');
         if (lastAiMessage && lastPlayerMessage) {
-            setIsProcessing(true);
             try {
+                const historyForReroll = messages.slice(0, lastAiMessageIndex);
                 await storyService.deleteMessage(storyId, lastAiMessage.docId);
-                _orchestrateStoryGeneration('reroll', lastPlayerMessage, storyId);
+                _orchestrateStoryGeneration('reroll', lastPlayerMessage, historyForReroll, storyId);
             } catch (error) {
                 showToast("리롤 중 오류 발생", 'error');
-                setIsProcessing(false);
             }
         }
-    }, [isProcessing, messages, _orchestrateStoryGeneration, storyId, setIsProcessing, showToast]);
+    }, [isProcessing, messages, _orchestrateStoryGeneration, storyId, showToast]);
     
     const handleContinue = useCallback(() => {
         if (isProcessing || !storyId) return;
         const lastAiMessage = messages.findLast(msg => msg.sender === 'ai');
         if (lastAiMessage) {
-            const contentForContinue = lastAiMessage.style === 'Novel' ? JSON.stringify(lastAiMessage.content) : lastAiMessage.text;
-            _orchestrateStoryGeneration('continue', { text: contentForContinue }, storyId);
+            const contentForContinue = lastAiMessage.style === 'Novel' ? JSON.stringify(lastAiMessage.content) : lastAiMessage.content;
+            _orchestrateStoryGeneration('continue', { text: contentForContinue }, messages, storyId);
         }
     }, [isProcessing, messages, _orchestrateStoryGeneration, storyId]);
     
     const handleNewScene = useCallback(async () => {
         if (isProcessing) return;
-        setIsProcessing(true);
-        try {
-            const [hour, minute] = contextSettings.startTime.split(':').map(Number);
-            const initialWorldState = { day: 1, hour: isNaN(hour) ? 9 : hour, minute: isNaN(minute) ? 0 : minute, weather: contextSettings.startWeather || '실내' };
-            const charactersToSave = JSON.parse(JSON.stringify(characters));
-            charactersToSave.forEach(char => { if (Array.isArray(char.dailySchedule)) char.dailySchedule = JSON.stringify(char.dailySchedule); });
-            const newStoryData = { title: "새로운 장면", characters: charactersToSave, contextSettings, aiSettings, worldState: initialWorldState, apiLog, pinnedItems };
-            const newId = await storyService.createNewStory(newStoryData);
-            
-            for (const char of characters) {
-                if (!char.isUser && char.formativeEvent) {
-                    const profileText = `[페르소나 프로필] 이름: ${char.name}. 결정적 경험: ${char.formativeEvent}. 핵심 원칙: ${char.corePrinciple}. 코어 디자이어: ${char.coreDesire}.`;
-                    await _addEntryToIndex('characterIndex', { id: `L0_char_${char.id}`, text: profileText, level: 0, source_ids: [char.id.toString()] }, newId);
+        const newId = await persistenceHandleNewScene();
+        if (newId) {
+            try {
+                for (const char of characters) {
+                    if (!char.isUser && char.formativeEvent) {
+                        const profileText = `[페르소나 프로필] 이름: ${char.name}. 결정적 경험: ${char.formativeEvent}. 핵심 원칙: ${char.corePrinciple}. 코어 디자이어: ${char.coreDesire}.`;
+                        await _addEntryToIndex('characterIndex', { id: `L0_char_${char.id}`, text: profileText, level: 0, source_ids: [char.id.toString()] }, newId);
+                    }
                 }
+                for (const detail of contextSettings.details) {
+                    const text = `[${detail.category}] ${detail.keyword}: ${detail.description}`;
+                    await _addEntryToIndex('loreIndex', { id: `L0_lore_${detail.id}`, text: text, level: 0, source_ids: [detail.id.toString()] }, newId);
+                }
+                
+                const [hour, minute] = contextSettings.startTime.split(':').map(Number);
+                const initialWorldState = { day: 1, hour: isNaN(hour) ? 9 : hour, minute: isNaN(minute) ? 0 : minute, weather: contextSettings.startWeather || '실내' };
+                await _orchestrateStoryGeneration('new_scene', { text: '' }, [], newId, initialWorldState);
+            } catch (error) {
+                showToast(`새 장면 AI 생성 실패: ${error.message}`, 'error');
+                setIsProcessing(false);
             }
-            for (const detail of contextSettings.details) {
-                const text = `[${detail.category}] ${detail.keyword}: ${detail.description}`;
-                await _addEntryToIndex('loreIndex', { id: `L0_lore_${detail.id}`, text: text, level: 0, source_ids: [detail.id.toString()] }, newId);
-            }
-            await fetchStoryList();
-            await handleLoadStory(newId);
-            await _orchestrateStoryGeneration('new_scene', { text: '' }, newId, initialWorldState);
-        } catch (error) {
-            showToast(`새 장면 생성 실패: ${error.message}`, 'error');
-            setIsProcessing(false);
         }
-    }, [isProcessing, characters, contextSettings, aiSettings, apiLog, pinnedItems, fetchStoryList, handleLoadStory, _orchestrateStoryGeneration, _addEntryToIndex, setIsProcessing, showToast]);
+    }, [isProcessing, persistenceHandleNewScene, characters, contextSettings, _addEntryToIndex, _orchestrateStoryGeneration, showToast, setIsProcessing]);
     
     const handleIntervention = useCallback((text) => {
         if (!text.trim() || isProcessing || !storyId) return;
-        const interventionMessage = { id: Date.now(), sender: 'player', text: text.trim(), isSummarized: false, isOoc: true };
-        _orchestrateStoryGeneration('intervene', interventionMessage, storyId);
-    }, [isProcessing, _orchestrateStoryGeneration, storyId]);
+        const tempMessage = { id: `temp_${Date.now()}`, sender: 'player', text: text.trim(), isSummarized: false, isOoc: true, status: 'pending' };
+        _orchestrateStoryGeneration('intervene', tempMessage, messages, storyId);
+    }, [isProcessing, storyId, messages, _orchestrateStoryGeneration]);
+
+    const handleCancelGeneration = useCallback(() => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+    }, []);
+
 
     return {
         _addEntryToIndex,
         handleSendMessage,
+        handleResend,
         handleReroll,
         handleContinue,
         handleNewScene,
         handleIntervention,
+        handleCancelGeneration,
     };
 };

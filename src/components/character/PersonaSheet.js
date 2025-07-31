@@ -40,7 +40,7 @@ const ProfileTabContent = ({ localCharacter, handleLocalChange, handleImageUploa
                         <EditableField label="직업" value={localCharacter.job || ''} onChange={e => handleLocalChange('job', e.target.value)} placeholder="페르소나의 직업을 입력합니다." />
                     </div>
                     <EditableField isTextarea rows={5} label="외형" value={localCharacter.appearance || ''} onChange={e => handleLocalChange('appearance', e.target.value)} placeholder="페르소나의 외모, 체형, 자주 입는 옷차림 등을 구체적으로 묘사합니다." />
-                    <EditableField isTextarea rows={3} label="생성 컨셉 (AI 참고용)" value={localCharacter.generationConcept || ''} onChange={e => handleLocalChange('generationConcept', e.target.value)} placeholder="AI 프로필 자동 생성 시에만 참고할 페르소나의 핵심 컨셉이나 키워드를 서술합니다." />
+                    <EditableField isTextarea rows={3} label="생성 컨셉 (AI 참고용)" value={localCharacter.Concept || ''} onChange={e => handleLocalChange('Concept', e.target.value)} placeholder="AI 프로필 자동 생성 시에만 참고할 페르소나의 핵심 컨셉이나 키워드를 서술합니다." />
                 </div>
             </Card>
             <Card>

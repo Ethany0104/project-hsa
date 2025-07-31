@@ -4,9 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { ICONS } from '../../constants';
 import { Accordion } from './layouts';
 
-// [FEATURE] API 작업 로그에 표시될 이름, 아이콘, 프로그레스 바 색상을 매핑하는 객체
 const API_LOG_DISPLAY_MAP = {
-    // Profile Generation
+    generateWorldview: { label: "세계관 생성", icon: ICONS.LucideGlobe, color: 'bg-cyan-500' },
     generateNarrativeProfile: { label: "서사 프로필", icon: ICONS.LucideDrama, color: 'bg-pink-500' },
     generateRoleplayGuide: { label: "연기 가이드", icon: ICONS.LucideTheater, color: 'bg-pink-400' },
     generateBig5Profile: { label: "BIG5 성격", icon: ICONS.LucideBrainCircuit, color: 'bg-purple-500' },
@@ -16,19 +15,18 @@ const API_LOG_DISPLAY_MAP = {
     generateSpace: { label: "공간/사물", icon: ICONS.LucideHome, color: 'bg-indigo-500' },
     generateDailySchedule: { label: "하루 일과", icon: ICONS.LucideCalendarDays, color: 'bg-teal-500' },
     generateEmotionProfile: { label: "감정 프로필", icon: ICONS.LucideSmilePlus, color: 'bg-yellow-500' },
-    // Utility Generation
     getPdResponse: { label: "PD와 대화", icon: ICONS.LucideBot, color: 'bg-sky-500' },
     deduceTime: { label: "시간 흐름", icon: ICONS.LucideClock, color: 'bg-green-500' },
     updatePersonalGoals: { label: "목표 설정", icon: ICONS.LucideZap, color: 'bg-orange-500' },
     analyzeEmotion: { label: "감정 분석", icon: ICONS.LucideBrainCog, color: 'bg-red-500' },
     reEvaluateCoreBeliefs: { label: "심리 재평가", icon: ICONS.LucideBrainCircuit, color: 'bg-fuchsia-500' },
     summarizeEvents: { label: "기억 압축", icon: ICONS.LucideMemoryStick, color: 'bg-blue-500' },
-    // Default
+    generateNovelResponse: { label: "소설 연기", icon: ICONS.LucideFeather, color: 'bg-slate-500' },
+    generateChatResponse: { label: "채팅 연기", icon: ICONS.LucideMessageSquare, color: 'bg-slate-400' },
     default: { label: "알 수 없는 작업", icon: ICONS.LucideSettings, color: 'bg-gray-500' },
 };
 
 
-// ... (getWeatherIcon, FLAVOR_TEXTS, Spinner, WorldClock are unchanged)
 export const getWeatherIcon = (weather) => {
     if (!weather) return ICONS.LucideSun;
     const lowerCaseWeather = weather.toLowerCase();
@@ -60,10 +58,14 @@ export const WorldClock = ({ worldState }) => {
 
 
 export const ContextMeter = ({ contextInfo, maxTokens }) => {
-    const { system, world, memory, lore, chat, total } = contextInfo;
+    // [FEATURE] contextInfo에서 worldview를 분해하고, 값이 없을 경우 0으로 초기화합니다.
+    const { system = 0, worldview = 0, world = 0, memory = 0, lore = 0, chat = 0, total = 0 } = contextInfo;
     const percentage = maxTokens > 0 ? (total / maxTokens) * 100 : 0;
+    
+    // [FEATURE] segments 배열에 'Worldview'를 추가합니다.
     const segments = [
         { key: 'system', value: system, color: 'bg-red-500', textColor: 'text-red-400', label: 'System', icon: ICONS.LucideFileText },
+        { key: 'worldview', value: worldview, color: 'bg-cyan-500', textColor: 'text-cyan-400', label: 'Worldview', icon: ICONS.LucideGlobe },
         { key: 'world', value: world, color: 'bg-green-500', textColor: 'text-green-400', label: 'Situation', icon: ICONS.LucideClipboardList },
         { key: 'lore', value: lore, color: 'bg-blue-500', textColor: 'text-blue-400', label: 'Persona', icon: ICONS.LucideBookUser },
         { key: 'memory', value: memory, color: 'bg-yellow-500', textColor: 'text-yellow-400', label: 'Memory', icon: ICONS.LucideMemoryStick },
@@ -189,69 +191,52 @@ export const EmotionAnalysisViewer = ({ analysis, characterId }) => {
 };
 
 export const ApiLogViewer = ({ apiLog }) => {
-    const { log } = apiLog;
+    const [expandedLogId, setExpandedLogId] = useState(null);
 
-    const auxLog = useMemo(() => {
-        return log.filter(entry => !entry.functionName.toLowerCase().includes('response'));
-    }, [log]);
-
-    const totalAuxTokens = useMemo(() => {
-        return auxLog.reduce((total, entry) => total + (entry.totalTokens || 0), 0);
-    }, [auxLog]);
-
-    const lastTurnInfo = useMemo(() => {
-        if (auxLog.length === 0) {
-            return { logs: [], total: 0 };
-        }
-        const latestTimestamp = auxLog[0].id;
-        const lastTurnLogs = auxLog.filter(entry => latestTimestamp - entry.id < 2000);
-        const lastTurnTotal = lastTurnLogs.reduce((sum, entry) => sum + entry.totalTokens, 0);
-        return { logs: lastTurnLogs, total: lastTurnTotal };
-    }, [auxLog]);
+    const toggleLogExpansion = (id) => {
+        setExpandedLogId(prevId => (prevId === id ? null : id));
+    };
 
     return (
-        <Accordion title="API 작업 로그 (보조 엔진)" icon={ICONS.LucideHistory} defaultOpen={true}>
-            <div className="p-2 space-y-4 font-sans">
-                {/* 총 누적 사용량 표시 */}
-                <div className="p-2 bg-[var(--input-bg)] rounded-md border border-[var(--border-primary)] text-center">
-                    <p className="text-xs text-[var(--text-secondary)]">이번 세션 총 사용량</p>
-                    <p className="text-lg font-bold font-mono text-[var(--accent-primary)]">{totalAuxTokens.toLocaleString()} 토큰</p>
-                </div>
-
-                {/* 마지막 작업 사용량 */}
-                {lastTurnInfo.logs.length > 0 && (
-                    <div>
-                        <div className="flex justify-between items-center text-xs px-1">
-                            <span className="font-bold text-[var(--text-secondary)]">방금 작업 사용량</span>
-                            <span className="font-mono text-[var(--text-primary)]">{lastTurnInfo.total.toLocaleString()} 토큰</span>
-                        </div>
-                    </div>
-                )}
-                
-                {/* 전체 작업 로그 목록 */}
-                <div className="space-y-2 max-h-60 overflow-y-auto p-1 pr-2 border-t border-[var(--border-primary)] pt-3">
-                    <h4 className="text-xs font-bold text-[var(--text-secondary)] px-1 pb-1">전체 작업 기록</h4>
-                    {auxLog.length === 0 ? (
-                        <p className="text-xs text-center text-[var(--text-secondary)] py-4">보조 AI 작업 기록이 없습니다.</p>
-                    ) : (
-                        auxLog.map(entry => {
-                            const displayInfo = API_LOG_DISPLAY_MAP[entry.functionName] || API_LOG_DISPLAY_MAP.default;
-                            const Icon = displayInfo.icon;
-                            return (
-                                <div key={entry.id} className="flex items-center justify-between text-xs p-2 bg-[var(--panel-bg-alt)] rounded-md">
+        <Accordion title="API 작업 로그" icon={ICONS.LucideHistory} defaultOpen={true}>
+            <div className="p-2 space-y-2 font-sans max-h-96 overflow-y-auto">
+                {apiLog.log.length === 0 ? (
+                    <p className="text-xs text-center text-[var(--text-secondary)] py-4">AI 작업 기록이 없습니다.</p>
+                ) : (
+                    apiLog.log.map(entry => {
+                        const displayInfo = API_LOG_DISPLAY_MAP[entry.functionName] || API_LOG_DISPLAY_MAP.default;
+                        const Icon = displayInfo.icon;
+                        const isExpanded = expandedLogId === entry.id;
+                        return (
+                            <div key={entry.id} className="bg-[var(--panel-bg-alt)] rounded-md border border-[var(--border-primary)]">
+                                <div 
+                                    className="flex items-center justify-between text-xs p-2 cursor-pointer hover:bg-[var(--bg-tertiary)]"
+                                    onClick={() => toggleLogExpansion(entry.id)}
+                                >
                                     <div className="flex items-center min-w-0">
                                         <Icon className="w-4 h-4 mr-2 text-[var(--text-secondary)] flex-shrink-0" />
                                         <div className="flex-grow min-w-0">
-                                            <p className="text-[var(--text-primary)] truncate">{displayInfo.label}</p>
+                                            <p className="text-[var(--text-primary)] truncate font-semibold">{displayInfo.label}</p>
                                             <p className="text-[var(--text-secondary)] text-[10px] truncate">{entry.model}</p>
                                         </div>
                                     </div>
-                                    <span className="font-mono text-[var(--accent-primary)] flex-shrink-0 ml-2">{entry.totalTokens.toLocaleString()} 토큰</span>
+                                    <div className="flex items-center flex-shrink-0 ml-2">
+                                        <span className="font-mono text-[var(--accent-primary)] mr-2">{entry.totalTokens.toLocaleString()} 토큰</span>
+                                        <ICONS.LucideChevronDown className={`w-4 h-4 text-[var(--text-secondary)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </div>
                                 </div>
-                            );
-                        })
-                    )}
-                </div>
+                                {isExpanded && (
+                                    <div className="p-2 border-t border-[var(--border-primary)] bg-[var(--input-bg)]">
+                                        <h4 className="text-xs font-bold text-[var(--text-secondary)] mb-1">전송된 프롬프트:</h4>
+                                        <pre className="w-full bg-black/20 p-2 rounded text-[10px] text-white/80 overflow-x-auto whitespace-pre-wrap font-mono max-h-60">
+                                            <code>{entry.prompt}</code>
+                                        </pre>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
             </div>
         </Accordion>
     );
@@ -310,6 +295,33 @@ export const SettingSlider = ({ label, description, value, min, max, step, onCha
       </div>
     </div>
 );
+
+export const ToggleSwitch = ({ label, description, checked, onChange }) => (
+    <div className="font-sans">
+        <div className="flex justify-between items-center">
+            <div>
+                <label className="block text-sm font-medium text-[var(--text-primary)]">{label}</label>
+                <p className="text-xs text-[var(--text-secondary)]">{description}</p>
+            </div>
+            <button
+                type="button"
+                onClick={onChange}
+                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-secondary)] focus:ring-[var(--accent-primary)] ${
+                    checked ? 'bg-[var(--accent-primary)]' : 'bg-[var(--input-bg)]'
+                }`}
+                role="switch"
+                aria-checked={checked}
+            >
+                <span
+                    className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 ease-in-out ${
+                        checked ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                />
+            </button>
+        </div>
+    </div>
+);
+
 
 export const ControlButton = ({ icon: Icon, label, onClick }) => ( 
     <button onClick={onClick} className="flex items-center px-3 py-1.5 bg-[var(--bg-secondary)] rounded-full text-xs text-[var(--text-secondary)] transition-all duration-200 hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] shadow-sm">

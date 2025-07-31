@@ -61,7 +61,7 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
                                     <h3 className="font-bold text-lg text-[var(--text-primary)] truncate">{user.name || "이름 없음"}</h3>
                                     <ICONS.LucideEdit className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0 ml-2" />
                                 </div>
-                                <p className="text-sm text-[var(--text-secondary)] mt-1 truncate">{user.note || "노트 미설정"}</p>
+                                <p className="text-sm text-[var(--text-secondary)] mt-1 truncate">{user.Concept || "노트 미설정"}</p>
                             </div>
                         </div>
                     </Card>

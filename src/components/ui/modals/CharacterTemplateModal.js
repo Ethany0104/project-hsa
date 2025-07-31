@@ -68,27 +68,31 @@ export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, on
                             </div>
                         ) : (
                             <ul className="space-y-2 p-2">
-                                {filteredTemplates.map(template => (
-                                    <li key={template.id} className="p-3 bg-[var(--panel-bg)] hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 font-sans group">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex items-center min-w-0">
-                                                {template.profileImageUrl ? (
-                                                    <img src={template.profileImageUrl} alt={template.name} className="w-10 h-10 rounded-full object-cover mr-4 flex-shrink-0" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-[var(--input-bg)] flex-shrink-0 mr-4 flex items-center justify-center font-bold">{template.name.charAt(0)}</div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold text-[var(--text-primary)] truncate">{template.name}</h3>
-                                                    <p className="text-xs text-[var(--text-secondary)] mt-1 truncate">{template.note || '노트 없음'}</p>
+                                {filteredTemplates.map(template => {
+                                    // [BUG FIX] isUser 값에 따라 다른 컨셉 필드를 사용하도록 수정합니다.
+                                    const conceptText = template.isUser ? template.Concept : template.generationConcept;
+                                    return (
+                                        <li key={template.id} className="p-3 bg-[var(--panel-bg)] hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 font-sans group">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="flex items-center min-w-0">
+                                                    {template.profileImageUrl ? (
+                                                        <img src={template.profileImageUrl} alt={template.name} className="w-10 h-10 rounded-full object-cover mr-4 flex-shrink-0" />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-full bg-[var(--input-bg)] flex-shrink-0 mr-4 flex items-center justify-center font-bold">{template.name.charAt(0)}</div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-semibold text-[var(--text-primary)] truncate">{template.name}</h3>
+                                                        <p className="text-xs text-[var(--text-secondary)] mt-1 truncate">{conceptText || '컨셉 미설정'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                                    <button onClick={() => handleLoad(template)} className="px-3 py-1 bg-[var(--accent-primary)] text-white text-xs rounded-md hover:bg-[var(--accent-secondary)] transition-opacity whitespace-nowrap">불러오기</button>
+                                                    <button onClick={() => confirmDelete(template)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)] rounded-full hover:bg-red-500/10 transition-colors"><ICONS.LucideTrash2 size={16}/></button>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                                <button onClick={() => handleLoad(template)} className="px-3 py-1 bg-[var(--accent-primary)] text-white text-xs rounded-md hover:bg-[var(--accent-secondary)] transition-opacity whitespace-nowrap">불러오기</button>
-                                                <button onClick={() => confirmDelete(template)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)] rounded-full hover:bg-red-500/10 transition-colors"><ICONS.LucideTrash2 size={16}/></button>
-                                            </div>
-                                        </div>
-                                    </li>
-                                ))}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         )}
                     </div>

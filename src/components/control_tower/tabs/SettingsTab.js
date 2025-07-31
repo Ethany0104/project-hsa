@@ -3,31 +3,34 @@
 import React from 'react';
 import { Card, CardHeader, Accordion } from '../../ui/layouts';
 import { EditableField } from '../../ui/forms';
-// [BUG FIX] EmotionAnalysisViewer import를 제거합니다.
-import { RetrievedMemoryViewer, SettingSlider, ContextMeter, ApiLogViewer } from '../../ui/widgets';
+import { RetrievedMemoryViewer, SettingSlider, ContextMeter, ApiLogViewer, ToggleSwitch } from '../../ui/widgets';
 import { ICONS, GEMINI_MODELS, NARRATIVE_STYLES, getSystemInstruction } from '../../../constants';
 import { useStoryContext } from '../../../contexts/StoryProvider';
 
 const SettingsTab = () => {
     const { storyProps, handlerProps } = useStoryContext();
-    // [BUG FIX] 불필요해진 latestEmotionAnalysis와 characters를 제거합니다.
     const { aiSettings, contextInfo, retrievedMemories, apiLog } = storyProps;
     const { setAiSettings } = handlerProps;
 
+    // [수정] handleSettingChange 로직을 개선하여, 관련 설정 변경 시 시스템 지침을 자동으로 재생성하도록 합니다.
     const handleSettingChange = (key, value) => {
       const numericFields = ['temperature', 'topK', 'topP', 'maxOutputTokens', 'maxContextTokens', 'shortTermMemoryTurns', 'retrievalTopK'];
-      const finalValue = numericFields.includes(key) ? Number(value) : value;
+      const finalValue = typeof value === 'boolean' ? value : (numericFields.includes(key) ? Number(value) : value);
 
-      if (key === 'narrativeStyle') {
-          const newInstruction = getSystemInstruction(finalValue);
-          setAiSettings(prev => ({
-              ...prev,
-              narrativeStyle: finalValue,
-              systemInstruction: newInstruction
-          }));
-      } else {
-          setAiSettings(prev => ({ ...prev, [key]: finalValue }));
-      }
+      setAiSettings(prev => {
+          const newSettings = { ...prev, [key]: finalValue };
+
+          // narrativeStyle 또는 enableNsfw가 변경되면, 시스템 지침을 재생성합니다.
+          if (key === 'narrativeStyle' || key === 'enableNsfw' || key === 'systemInstruction') {
+              const style = newSettings.narrativeStyle;
+              const enableNsfw = newSettings.enableNsfw;
+              // 사용자가 직접 지침을 수정한 경우가 아니라면, 자동으로 재생성합니다.
+              if (key !== 'systemInstruction') {
+                newSettings.systemInstruction = getSystemInstruction({ style, enableNsfw });
+              }
+          }
+          return newSettings;
+      });
     };
 
     const NarrativeStyleSelector = ({ value, onChange }) => (
@@ -41,7 +44,7 @@ const SettingsTab = () => {
                       <button
                           key={style.id}
                           onClick={() => onChange('narrativeStyle', style.id)}
-                          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors flex items-center justify-center gap-2 ${value === style.id ? 'bg-[var(--accent-primary)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
+                          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${value === style.id ? 'bg-[var(--accent-primary)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'}`}
                       >
                           {Icon && <Icon size={16} />}
                           {style.name}
@@ -85,6 +88,20 @@ const SettingsTab = () => {
               <SettingSlider label="온도 (Temperature)" description="높을수록 창의적이고 예측 불가능한 연기를 선보입니다." value={aiSettings.temperature} min={0} max={2} step={0.05} onChange={value => handleSettingChange('temperature', value)} />
               <SettingSlider label="Top-K" description="다음 단어 선택 시, 가장 확률 높은 K개의 단어 중에서만 고릅니다." value={aiSettings.topK} min={1} max={100} step={1} onChange={value => handleSettingChange('topK', value)} />
               <SettingSlider label="Top-P" description="온도와 함께 사용되며, 생성될 단어의 후보군을 동적으로 조절합니다." value={aiSettings.topP} min={0} max={1} step={0.05} onChange={value => handleSettingChange('topP', value)} />
+              <div className="w-full h-px bg-[var(--border-primary)] opacity-50 my-2"></div>
+              <ToggleSwitch
+                label="AI 동적 평가 활성화"
+                description="AI가 매 턴마다 페르소나의 감정과 목표를 스스로 갱신합니다."
+                checked={aiSettings.enableDynamicEvaluation}
+                onChange={() => handleSettingChange('enableDynamicEvaluation', !aiSettings.enableDynamicEvaluation)}
+              />
+              {/* [추가] NSFW 활성화 토글 스위치를 추가합니다. */}
+              <ToggleSwitch
+                label="NSFW 묘사 활성화"
+                description="AI가 노골적인 성적, 폭력적 묘사를 생성하도록 허용합니다."
+                checked={aiSettings.enableNsfw}
+                onChange={() => handleSettingChange('enableNsfw', !aiSettings.enableNsfw)}
+              />
           </div>
         </Card>
         <Card>
@@ -95,7 +112,6 @@ const SettingsTab = () => {
           <CardHeader icon={ICONS.LucideBrainCircuit} title="컨텍스트 및 기억 시스템" />
           <div className="space-y-4">
               <ContextMeter contextInfo={contextInfo} maxTokens={aiSettings.maxContextTokens} />
-              {/* [BUG FIX] EmotionAnalysisViewer를 여기서 제거합니다. */}
               <RetrievedMemoryViewer memories={retrievedMemories} />
               <ApiLogViewer apiLog={apiLog} />
               <Accordion title="세부 설정" icon={ICONS.LucideGripVertical}>

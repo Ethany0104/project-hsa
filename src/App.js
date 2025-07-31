@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStoryContext } from './contexts/StoryProvider';
 import ControlTower from './components/control_tower/ControlTower';
 import MainView from './components/MainView';
 import { UserSheetContent } from './components/character/UserSheetContent';
 import { PersonaSheetContent } from './components/character/PersonaSheetContent';
-// [FEATURE] 새로 만든 PersonaStatusFloater와 SideSheet, Toast를 import합니다.
 import { SideSheet, Toast, PersonaStatusFloater } from './components/ui';
 import { PdChatModal } from './components/pd_chat/PdChatModal';
 import './styles/theme.css';
@@ -15,7 +14,6 @@ function App() {
     editingState,
     characters,
     toast,
-    // [FEATURE] 현황 창 관련 상태를 context에서 가져옵니다.
     floatingStatusWindows,
     latestEmotionAnalysis,
   } = storyProps;
@@ -24,16 +22,25 @@ function App() {
     setEditingState,
     setCharacters,
     setToast,
-    // [FEATURE] 현황 창 토글 핸들러를 context에서 가져옵니다.
     handleToggleFloater,
   } = handlerProps;
 
   const [activeTab, setActiveTab] = useState('character');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   const [isPdChatOpen, setIsPdChatOpen] = useState(false);
+  
+  // [BUG FIX] 마지막 창 너비를 기억하기 위한 ref를 추가합니다.
+  const lastWidth = useRef(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setIsSidebarOpen(window.innerWidth > 768);
+    // [BUG FIX] 모바일에서 키보드가 나타날 때 발생하는 resize 이벤트를 필터링합니다.
+    // 화면의 '너비'가 실제로 변경되었을 때만 사이드바 상태를 변경하도록 수정합니다.
+    const handleResize = () => {
+      if (window.innerWidth !== lastWidth.current) {
+        setIsSidebarOpen(window.innerWidth > 768);
+        lastWidth.current = window.innerWidth;
+      }
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -72,7 +79,6 @@ function App() {
           onTogglePdChat={togglePdChat}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          // [FEATURE] ControlTower에 핸들러를 전달합니다.
           onToggleFloater={handleToggleFloater}
         />
         <MainView onToggleSidebar={toggleSidebar} />
@@ -97,7 +103,6 @@ function App() {
 
       <PdChatModal isOpen={isPdChatOpen} onClose={togglePdChat} />
 
-      {/* [FEATURE] 열려있는 현황 창들을 렌더링합니다. */}
       {floatingStatusWindows.map(charId => {
           const char = characters.find(c => c.id === charId);
           if (!char) return null;

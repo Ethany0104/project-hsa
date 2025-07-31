@@ -11,7 +11,6 @@ import ContextTab from './tabs/ContextTab';
 import SettingsTab from './tabs/SettingsTab';
 import OocControlTab from './tabs/OocControlTab';
 
-// [FEATURE] onToggleFloater prop을 추가로 받습니다.
 function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, activeTab, onTabChange, onToggleFloater }) {
   const { storyProps, handlerProps } = useStoryContext();
   const {
@@ -49,19 +48,23 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
     switch (activeTab) {
       case 'settings': return <SettingsTab />;
       case 'context': return <ContextTab />;
-      // [FEATURE] CharacterTab에 onToggleFloater prop을 전달합니다.
       case 'character': return <CharacterTab onEditCharacter={onEditCharacter} onToggleFloater={onToggleFloater} />;
       case 'ooc': return <OocControlTab onTogglePdChat={onTogglePdChat} />;
       default: return null;
     }
-    // [FEATURE] 의존성 배열에 onToggleFloater를 추가합니다.
   }, [activeTab, onEditCharacter, onTogglePdChat, onToggleFloater]);
 
   const user = characters.find(c => c.isUser);
   const isNewSceneDisabled = !contextSettings.situation || !user?.name || characters.filter(c => !c.isUser).length === 0;
 
+  // [FEATURE] 템플릿 불러오기 로직을 수정하여 contextSettings 전체를 불러오도록 합니다.
   const handleLoadBlueprint = (template) => {
-    setContextSettings(prev => ({ ...prev, situation: template.situation }));
+    if (template && template.contextSettings) {
+        setContextSettings(template.contextSettings);
+    } else {
+        // [LEGACY] 구버전 템플릿(situation만 있는 경우)과의 호환성을 유지합니다.
+        setContextSettings(prev => ({ ...prev, situation: template.situation }));
+    }
   };
 
   return (

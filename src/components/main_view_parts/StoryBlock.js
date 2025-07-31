@@ -82,10 +82,10 @@ const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage,
     }
 
     // AI 메시지 렌더링 (채팅 모드)
-    if (message.sender === 'ai' && message.style === 'Chat' && typeof message.text === 'string') {
+    if (message.sender === 'ai' && message.style === 'Chat' && typeof message.content === 'string') {
         return (
             <ChatMessageBlock
-                text={message.text}
+                text={message.content} // message.text -> message.content 로 수정
                 isLastAiMessage={isLastAiMessage}
                 onReroll={onReroll}
                 onContinue={onContinue}
