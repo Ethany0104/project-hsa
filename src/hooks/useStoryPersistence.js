@@ -190,6 +190,33 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         fetchStoryList, setIsProcessing, showToast
     ]);
 
+    // [추가] 캐릭터 정보만 업데이트하고 즉시 Firestore에 저장하는 핸들러
+    const handleUpdateAndSaveCharacter = useCallback(async (updatedCharacter) => {
+        if (!storyId) {
+            showToast("캐릭터를 저장하려면 먼저 장면을 시작해야 합니다.", "error");
+            return;
+        }
+        
+        // 1. React 상태를 먼저 업데이트합니다.
+        const updatedCharacters = characters.map(c => c.id === updatedCharacter.id ? updatedCharacter : c);
+        setCharacters(updatedCharacters);
+
+        // 2. Firestore에 저장할 수 있도록 데이터를 준비합니다.
+        const charactersToSave = prepareCharactersForSave(updatedCharacters);
+
+        // 3. Firestore에 characters 필드만 업데이트합니다.
+        try {
+            await storyService.saveStory(storyId, { characters: charactersToSave });
+            showToast(`'${updatedCharacter.name}' 정보가 저장되었습니다.`);
+        } catch (error) {
+            console.error("캐릭터 저장 오류:", error);
+            showToast("캐릭터 정보 저장 중 오류가 발생했습니다.", "error");
+            // 오류 발생 시 상태를 이전으로 되돌릴 수 있습니다 (선택적).
+            // setCharacters(characters); 
+        }
+    }, [storyId, characters, setCharacters, showToast]);
+
+
     const handleDeleteStory = useCallback(async (idToDelete) => {
         setIsProcessing(true);
         try {
@@ -208,7 +235,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         }
     }, [storyId, fetchStoryList, resetToWelcome, setIsProcessing, showToast]);
 
-    // [FIX] 템플릿 저장 시 situation만 저장하는 대신 contextSettings 전체를 저장하도록 수정합니다.
     const handleSaveBlueprintTemplate = useCallback(async (templateName) => {
         if (!templateName.trim()) {
             showToast("템플릿 이름을 입력해주세요.");
@@ -219,7 +245,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
             const templateData = {
                 id: Date.now().toString(),
                 name: templateName,
-                contextSettings: contextSettings, // 이 부분이 핵심 수정사항입니다.
+                contextSettings: contextSettings,
             };
             await storyService.saveBlueprintTemplate(templateData);
             await fetchBlueprintTemplates();
@@ -341,5 +367,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         handleDeleteCharacterTemplate,
         fetchCharacterTemplates,
         handleNewScene,
+        // [추가] 새로 만든 핸들러를 export합니다.
+        handleUpdateAndSaveCharacter,
     };
 };

@@ -189,7 +189,9 @@ const ContextTab = () => {
                     <EditableField
                         label="시작 날씨"
                         type="text"
-                        value={contextSettings.startWeather || '실내'}
+                        // [BUG FIX] 입력값이 비워졌을 때 '실내'로 되돌아가는 현상을 수정합니다.
+                        // 이제 상태값이 비어있으면 입력 필드도 비워집니다.
+                        value={contextSettings.startWeather}
                         onChange={e => handleContextChange('startWeather', e.target.value)}
                         placeholder="장면 시작 시점의 날씨를 입력합니다. (맑음, 흐림, 비, 눈, 실내 등)"
                     />

@@ -4,7 +4,6 @@ import { updateNestedState } from '../../utils/stateUtils';
 import { SheetHeader } from './SheetHeader';
 import { NpcSheet } from './PersonaSheet';
 
-// [FEATURE] 캐릭터 데이터를 텍스트로 변환하는 헬퍼 함수
 const formatCharacterToText = (character, allCharacters) => {
     let output = `≡≡≡ 페르소나 프로필: ${character.name} ≡≡≡\n\n`;
 
@@ -90,12 +89,14 @@ export const PersonaSheetContent = ({ character, onUpdate, onClose }) => {
         handleProposeReEvaluation,
         handleRequestSaveCharacterTemplate,
         handleGenerateSchedule,
-        handleGenerateEmotionProfile
+        handleGenerateEmotionProfile,
+        handleUploadProfileImage,
     } = handlerProps;
 
     const hasChanges = useMemo(() => JSON.stringify(localCharacter) !== JSON.stringify(character), [localCharacter, character]);
     const canReEvaluate = useMemo(() => messages.length >= 10, [messages]);
 
+    // [수정] character prop이 변경될 때마다 항상 localCharacter 상태를 동기화합니다.
     useEffect(() => {
         setLocalCharacter(character);
     }, [character]);
@@ -104,16 +105,13 @@ export const PersonaSheetContent = ({ character, onUpdate, onClose }) => {
         setLocalCharacter(updateNestedState(path, value));
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) { // 2MB 제한
-                showToast("이미지 파일은 2MB를 초과할 수 없습니다.", 'error');
-                return;
+            const newUrl = await handleUploadProfileImage(file, localCharacter.id);
+            if (newUrl) {
+                handleLocalChange('profileImageUrl', newUrl);
             }
-            const reader = new FileReader();
-            reader.onloadend = () => handleLocalChange('profileImageUrl', reader.result);
-            reader.readAsDataURL(file);
         }
     };
 
@@ -124,7 +122,6 @@ export const PersonaSheetContent = ({ character, onUpdate, onClose }) => {
         }
     };
 
-    // [FEATURE] 캐릭터 정보 내보내기 핸들러
     const handleExportCharacter = () => {
         try {
             const textData = formatCharacterToText(localCharacter, characters);
@@ -154,7 +151,7 @@ export const PersonaSheetContent = ({ character, onUpdate, onClose }) => {
                 onGenerateProfile={handleGenerateProfile}
                 onReEvaluate={() => handleProposeReEvaluation(localCharacter.id)}
                 onSaveTemplate={() => handleRequestSaveCharacterTemplate(localCharacter)}
-                onExport={handleExportCharacter} // [FEATURE] 핸들러 전달
+                onExport={handleExportCharacter}
                 isProcessing={isProcessing}
                 canReEvaluate={canReEvaluate}
             />

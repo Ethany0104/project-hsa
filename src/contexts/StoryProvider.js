@@ -7,7 +7,7 @@ import { useStoryGeneration } from '../hooks/useStoryGeneration';
 import { useProfileGeneration } from '../hooks/useProfileGeneration';
 import { useMemoryManagement } from '../hooks/useMemoryManagement';
 import { usePdChat } from '../hooks/usePdChat';
-import { utilityGenerator } from '../services';
+import { utilityGenerator, storyService } from '../services';
 
 const StoryContext = React.createContext(null);
 
@@ -40,7 +40,46 @@ export const StoryProvider = ({ children }) => {
     const memoryManagementHandlers = useMemoryManagement(storyDataState, uiState, showToast, addApiLogEntry, _addEntryToIndex);
     const pdChatHandlers = usePdChat(storyDataState, uiState, showToast, addApiLogEntry);
 
-    // [FEATURE] 페르소나 현황 창을 토글하는 핸들러 추가
+    const handleUploadProfileImage = useCallback(async (file, characterId) => {
+        if (!storyDataState.storyId) {
+            showToast("이미지를 업로드하려면 먼저 장면을 시작해야 합니다.", "error");
+            return null;
+        }
+        if (!file) return null;
+
+        if (file.size > 5 * 1024 * 1024) { // 5MB 제한
+            showToast("이미지 파일은 5MB를 초과할 수 없습니다.", 'error');
+            return null;
+        }
+
+        uiState.setIsProcessing(true);
+        showToast("프로필 이미지를 업로드하는 중...", "default");
+
+        try {
+            const fileExtension = file.name.split('.').pop();
+            const uploadPath = `images/${storyDataState.storyId}/${characterId}_${Date.now()}.${fileExtension}`;
+            
+            const downloadURL = await storyService.uploadImage(file, uploadPath);
+            
+            storyDataState.setCharacters(prev => 
+                prev.map(c => 
+                    c.id === characterId ? { ...c, profileImageUrl: downloadURL } : c
+                )
+            );
+            
+            showToast("프로필 이미지가 성공적으로 업로드되었습니다.", "success");
+            return downloadURL;
+
+        } catch (error) {
+            console.error("이미지 업로드 실패:", error);
+            showToast(`이미지 업로드 실패: ${error.message}`, "error");
+            return null;
+        } finally {
+            uiState.setIsProcessing(false);
+        }
+
+    }, [storyDataState.storyId, storyDataState.setCharacters, uiState.setIsProcessing, showToast]);
+
     const handleToggleFloater = useCallback((characterId) => {
         uiState.setFloatingStatusWindows(prev => {
             if (prev.includes(characterId)) {
@@ -127,8 +166,8 @@ export const StoryProvider = ({ children }) => {
             handleUnpinItem,
             handleUpdatePinnedItem,
             handleReorderPinnedItems,
-            // [FEATURE] 새 핸들러를 context에 추가
             handleToggleFloater,
+            handleUploadProfileImage,
             showToast,
             _addEntryToIndex,
         }
@@ -139,8 +178,8 @@ export const StoryProvider = ({ children }) => {
         showToast, _addEntryToIndex, handlePinItem, handleUnpinItem,
         handleUpdatePinnedItem, handleReorderPinnedItems,
         handleRequestSaveCharacterTemplate, handleConfirmSaveCharacterTemplate,
-        // [FEATURE] 의존성 배열에 새 핸들러 추가
-        handleToggleFloater
+        handleToggleFloater,
+        handleUploadProfileImage
     ]);
 
     return (

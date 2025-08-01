@@ -12,19 +12,25 @@ const SettingsTab = () => {
     const { aiSettings, contextInfo, retrievedMemories, apiLog } = storyProps;
     const { setAiSettings } = handlerProps;
 
-    // [수정] handleSettingChange 로직을 개선하여, 관련 설정 변경 시 시스템 지침을 자동으로 재생성하도록 합니다.
+    // [BUG FIX] 숫자 입력 필드가 비워지지 않는 문제를 해결합니다.
+    // 빈 문자열('')을 허용하여 입력 필드를 완전히 비울 수 있도록 수정합니다.
     const handleSettingChange = (key, value) => {
       const numericFields = ['temperature', 'topK', 'topP', 'maxOutputTokens', 'maxContextTokens', 'shortTermMemoryTurns', 'retrievalTopK'];
-      const finalValue = typeof value === 'boolean' ? value : (numericFields.includes(key) ? Number(value) : value);
+      
+      let finalValue = value;
+      if (numericFields.includes(key)) {
+          // 값이 비어있으면 빈 문자열을 그대로 사용하고, 그렇지 않으면 숫자로 변환합니다.
+          finalValue = value === '' ? '' : Number(value);
+      } else if (typeof value === 'boolean') {
+          finalValue = value;
+      }
 
       setAiSettings(prev => {
           const newSettings = { ...prev, [key]: finalValue };
 
-          // narrativeStyle 또는 enableNsfw가 변경되면, 시스템 지침을 재생성합니다.
           if (key === 'narrativeStyle' || key === 'enableNsfw' || key === 'systemInstruction') {
               const style = newSettings.narrativeStyle;
               const enableNsfw = newSettings.enableNsfw;
-              // 사용자가 직접 지침을 수정한 경우가 아니라면, 자동으로 재생성합니다.
               if (key !== 'systemInstruction') {
                 newSettings.systemInstruction = getSystemInstruction({ style, enableNsfw });
               }
@@ -95,7 +101,6 @@ const SettingsTab = () => {
                 checked={aiSettings.enableDynamicEvaluation}
                 onChange={() => handleSettingChange('enableDynamicEvaluation', !aiSettings.enableDynamicEvaluation)}
               />
-              {/* [추가] NSFW 활성화 토글 스위치를 추가합니다. */}
               <ToggleSwitch
                 label="NSFW 묘사 활성화"
                 description="AI가 노골적인 성적, 폭력적 묘사를 생성하도록 허용합니다."

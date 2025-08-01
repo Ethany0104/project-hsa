@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'; // useEffect와 useRef를 import합니다.
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardHeader } from '../../ui/layouts';
 import { ConfirmationModal } from '../../ui';
 import { ICONS, DEFAULT_PERSONA } from '../../../constants';
 import { useStoryContext } from '../../../contexts/StoryProvider';
 
-// [FEATURE] onToggleFloater prop을 추가로 받습니다.
 const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
     const { storyProps, handlerProps } = useStoryContext();
     const { characters } = storyProps;
@@ -14,10 +13,8 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
     const [newPersonaName, setNewPersonaName] = useState("");
     const [personaToDelete, setPersonaToDelete] = useState(null);
     
-    // [BUG FIX] 새 페르소나 이름 입력창에 대한 ref를 생성합니다.
     const newPersonaInputRef = useRef(null);
 
-    // [BUG FIX] isAddingPersona 상태가 true로 바뀔 때마다 입력창에 포커스를 줍니다.
     useEffect(() => {
         if (isAddingPersona && newPersonaInputRef.current) {
             newPersonaInputRef.current.focus();
@@ -75,7 +72,6 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
                     <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
                         {isAddingPersona && (
                             <div className="p-3 bg-[var(--input-bg)] border border-dashed border-[var(--border-primary)] rounded-lg space-y-2">
-                                {/* [BUG FIX] autoFocus 속성을 제거하고 ref를 연결합니다. */}
                                 <input 
                                     ref={newPersonaInputRef}
                                     type="text" 
@@ -102,11 +98,11 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
                                     </div>
                                     <div className="flex-grow min-w-0">
                                         <h3 className="font-bold text-[var(--text-primary)] truncate">{char.name}</h3>
+                                        {/* [BUG FIX] 'generationConcept'을 올바르게 참조하도록 수정합니다. */}
                                         <p className="text-xs text-[var(--text-secondary)] break-words truncate">{char.generationConcept || '노트 미설정'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 pl-2">
-                                    {/* [FEATURE] 현황 창 토글 버튼 추가 */}
                                     <button onClick={(e) => { e.stopPropagation(); onToggleFloater(char.id); }} title="현황 보기" className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--accent-primary)]"><ICONS.LucideMonitor size={16} /></button>
                                     <button onClick={(e) => { e.stopPropagation(); confirmDeletePersona(char); }} title="삭제" className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)]"><ICONS.LucideTrash2 size={16} /></button>
                                 </div>

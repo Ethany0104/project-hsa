@@ -3,13 +3,12 @@ import { useStoryContext } from '../../contexts/StoryProvider';
 import { ICONS } from '../../constants';
 import { Card, CardHeader } from '../ui/layouts';
 import { EditableField } from '../ui/forms';
-import { Spinner, EmotionAnalysisViewer } from '../ui/widgets';
+import { Spinner, EmotionAnalysisViewer, Big5Slider } from '../ui/widgets';
 import RelationshipManager from './sheet_parts/RelationshipManager';
 import ScheduleManager from './sheet_parts/ScheduleManager';
 import BdsmSlider from './sheet_parts/BdsmSlider';
 import PossessionsManager from './sheet_parts/PossessionsManager';
 
-// [BUG FIX] 실시간 감정 분석 결과를 표시하기 위해 latestEmotionAnalysis prop을 받습니다.
 const ProfileTabContent = ({ localCharacter, handleLocalChange, handleImageUpload, latestEmotionAnalysis }) => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Column 1: 기본 정보 및 연기 가이드 */}
@@ -36,11 +35,18 @@ const ProfileTabContent = ({ localCharacter, handleLocalChange, handleImageUploa
                     </div>
                     <EditableField label="이름" value={localCharacter.name || ''} onChange={e => handleLocalChange('name', e.target.value)} placeholder="페르소나의 이름을 입력합니다." />
                     <div className="grid grid-cols-2 gap-4">
-                        <EditableField label="나이" type="number" value={localCharacter.age || ''} onChange={e => handleLocalChange('age', parseInt(e.target.value) || 0)} placeholder="페르소나의 나이를 입력합니다." />
+                        <EditableField 
+                            label="나이" 
+                            type="number" 
+                            value={localCharacter.age || ''} 
+                            onChange={e => handleLocalChange('age', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} 
+                            placeholder="페르소나의 나이를 입력합니다." 
+                        />
                         <EditableField label="직업" value={localCharacter.job || ''} onChange={e => handleLocalChange('job', e.target.value)} placeholder="페르소나의 직업을 입력합니다." />
                     </div>
                     <EditableField isTextarea rows={5} label="외형" value={localCharacter.appearance || ''} onChange={e => handleLocalChange('appearance', e.target.value)} placeholder="페르소나의 외모, 체형, 자주 입는 옷차림 등을 구체적으로 묘사합니다." />
-                    <EditableField isTextarea rows={3} label="생성 컨셉 (AI 참고용)" value={localCharacter.Concept || ''} onChange={e => handleLocalChange('Concept', e.target.value)} placeholder="AI 프로필 자동 생성 시에만 참고할 페르소나의 핵심 컨셉이나 키워드를 서술합니다." />
+                    {/* [BUG FIX] 'Concept'을 올바른 속성명인 'generationConcept'으로 수정합니다. */}
+                    <EditableField isTextarea rows={3} label="생성 컨셉 (AI 참고용)" value={localCharacter.generationConcept || ''} onChange={e => handleLocalChange('generationConcept', e.target.value)} placeholder="AI 프로필 자동 생성 시에만 참고할 페르소나의 핵심 컨셉이나 키워드를 서술합니다." />
                 </div>
             </Card>
             <Card>
@@ -63,7 +69,6 @@ const ProfileTabContent = ({ localCharacter, handleLocalChange, handleImageUploa
                     <EditableField isTextarea rows={3} label="핵심 지식 (Core Knowledge)" value={localCharacter.roleplayGuide?.coreKnowledge || ''} onChange={e => handleLocalChange('roleplayGuide.coreKnowledge', e.target.value)} placeholder="페르소나가 전문적으로 알고 있는 지식 분야나, 반대로 전혀 모르는 분야를 서술합니다." />
                 </div>
             </Card>
-            {/* [BUG FIX] 실시간 감정 분석 결과를 프로필 탭으로 이동합니다. */}
             <Card>
                 <CardHeader icon={ICONS.LucideBrainCircuit} title="실시간 감정 분석 (읽기 전용)" />
                 <EmotionAnalysisViewer analysis={latestEmotionAnalysis} characterId={localCharacter.id} />
@@ -207,6 +212,16 @@ const PsycheTabContent = ({ localCharacter, handleLocalChange, handleGenerateEmo
             </div>
             {/* Column 2: 방어기제, 리비도, 취향 */}
             <div className="space-y-6">
+                <Card>
+                    <CardHeader icon={ICONS.LucideBrainCircuit} title="BIG5 성격 특성" />
+                    <div className="space-y-4">
+                        <Big5Slider label="개방성" value={localCharacter.big5?.openness || 50} onChange={v => handleLocalChange('big5.openness', v)} />
+                        <Big5Slider label="성실성" value={localCharacter.big5?.conscientiousness || 50} onChange={v => handleLocalChange('big5.conscientiousness', v)} />
+                        <Big5Slider label="외향성" value={localCharacter.big5?.extraversion || 50} onChange={v => handleLocalChange('big5.extraversion', v)} />
+                        <Big5Slider label="우호성" value={localCharacter.big5?.agreeableness || 50} onChange={v => handleLocalChange('big5.agreeableness', v)} />
+                        <Big5Slider label="신경성" value={localCharacter.big5?.neuroticism || 50} onChange={v => handleLocalChange('big5.neuroticism', v)} />
+                    </div>
+                </Card>
                 <Card>
                     <CardHeader icon={ICONS.LucideShield} title="방어기제" />
                     <div>

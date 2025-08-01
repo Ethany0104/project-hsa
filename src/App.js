@@ -20,7 +20,8 @@ function App() {
 
   const {
     setEditingState,
-    setCharacters,
+    // [수정] setCharacters 대신 handleUpdateAndSaveCharacter를 가져옵니다.
+    handleUpdateAndSaveCharacter,
     setToast,
     handleToggleFloater,
   } = handlerProps;
@@ -29,12 +30,9 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   const [isPdChatOpen, setIsPdChatOpen] = useState(false);
   
-  // [BUG FIX] 마지막 창 너비를 기억하기 위한 ref를 추가합니다.
   const lastWidth = useRef(window.innerWidth);
 
   useEffect(() => {
-    // [BUG FIX] 모바일에서 키보드가 나타날 때 발생하는 resize 이벤트를 필터링합니다.
-    // 화면의 '너비'가 실제로 변경되었을 때만 사이드바 상태를 변경하도록 수정합니다.
     const handleResize = () => {
       if (window.innerWidth !== lastWidth.current) {
         setIsSidebarOpen(window.innerWidth > 768);
@@ -60,14 +58,22 @@ function App() {
     setEditingState(prev => ({ ...prev, isOpen: false }));
   }, [setEditingState]);
 
-  const handleUpdateCharacter = useCallback((updatedCharacter) => {
-    setCharacters(prev => prev.map(c => c.id === updatedCharacter.id ? updatedCharacter : c));
-  }, [setCharacters]);
+  // [삭제] 기존의 handleUpdateCharacter 함수는 이제 필요 없습니다.
+  // const handleUpdateCharacter = useCallback((updatedCharacter) => {
+  //   setCharacters(prev => prev.map(c => c.id === updatedCharacter.id ? updatedCharacter : c));
+  // }, [setCharacters]);
 
   const editingCharacter = useMemo(() => {
     if (!editingState.characterId) return null;
     return characters.find(c => c.id === editingState.characterId);
   }, [editingState.characterId, characters]);
+
+  const personaImages = useMemo(() => 
+    characters
+      .filter(c => !c.isUser && c.profileImageUrl)
+      .map(c => c.profileImageUrl),
+    [characters]
+  );
 
   return (
     <>
@@ -81,7 +87,7 @@ function App() {
           onTabChange={setActiveTab}
           onToggleFloater={handleToggleFloater}
         />
-        <MainView onToggleSidebar={toggleSidebar} />
+        <MainView onToggleSidebar={toggleSidebar} personaImages={personaImages} />
         {isSidebarOpen && window.innerWidth <= 768 && (
           <div className="main-view-overlay" onClick={toggleSidebar}></div>
         )}
@@ -93,12 +99,13 @@ function App() {
         onDismiss={() => setToast(prev => ({...prev, show: false}))} 
       />
 
+      {/* [수정] onUpdate prop에 handleUpdateAndSaveCharacter를 직접 전달합니다. */}
       <SideSheet isOpen={editingState.isOpen && editingState.type === 'user'} onClose={handleCloseSheets} size="narrow">
-        {editingCharacter && <UserSheetContent character={editingCharacter} onUpdate={handleUpdateCharacter} onClose={handleCloseSheets} />}
+        {editingCharacter && <UserSheetContent character={editingCharacter} onUpdate={handleUpdateAndSaveCharacter} onClose={handleCloseSheets} />}
       </SideSheet>
 
       <SideSheet isOpen={editingState.isOpen && editingState.type === 'persona'} onClose={handleCloseSheets} size="default">
-        {editingCharacter && <PersonaSheetContent character={editingCharacter} onUpdate={handleUpdateCharacter} onClose={handleCloseSheets} />}
+        {editingCharacter && <PersonaSheetContent character={editingCharacter} onUpdate={handleUpdateAndSaveCharacter} onClose={handleCloseSheets} />}
       </SideSheet>
 
       <PdChatModal isOpen={isPdChatOpen} onClose={togglePdChat} />

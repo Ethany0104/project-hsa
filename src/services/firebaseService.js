@@ -6,12 +6,16 @@ import {
     orderBy, limit 
 } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
+// [수정] Firebase Storage 관련 모듈을 가져옵니다.
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 // 이 경로는 실제 프로젝트 구조에 맞게 '../config/firebaseConfig' 등으로 수정해야 합니다.
 import { firebaseConfig } from "../config/firebaseConfig" 
 
 // --- Firebase Initialization ---
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+// [추가] Firebase Storage 서비스를 초기화합니다.
+const storage = getStorage(app);
 
 /**
  * Firestore에 저장하기 전에 객체에서 모든 'undefined' 값을 재귀적으로 제거하는 함수.
@@ -45,6 +49,17 @@ const sanitizeForFirestore = (obj) => {
 
 // --- Story Data Service (Firestore) ---
 export const storyService = {
+  // [추가] 이미지를 Firebase Storage에 업로드하고 URL을 반환하는 함수
+  uploadImage: async (file, path) => {
+    if (!file || !path) {
+      throw new Error("업로드할 파일과 저장 경로가 필요합니다.");
+    }
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  },
+
   fetchStoryList: async () => {
     const querySnapshot = await getDocs(collection(db, "stories"));
     return querySnapshot.docs.map(doc => ({ id: doc.id, title: doc.data().title || '제목 없는 이야기' }));
