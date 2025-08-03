@@ -21,8 +21,9 @@ const cosineSimilarity = (vecA, vecB) => {
 
 export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLogEntry, persistenceHandlers) => {
     const {
-        messages, characters, contextSettings, aiSettings, worldState, storyId, vectorIndices,
+        messages, characters, contextSettings, aiSettings, worldState, storyId, vectorIndices, assets,
         setMessages, setCharacters, setWorldState, setStoryTitle, setVectorIndices, setRetrievedMemories, setContextInfo,
+        setLastAiImageAssetChoice,
     } = storyDataState;
 
     const { isProcessing, setIsProcessing, setLatestEmotionAnalysis } = uiState;
@@ -73,7 +74,6 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
         
         try {
             if (promptType === 'send' || promptType === 'intervene' || promptType === 'resend') {
-                // 임시 메시지를 상태에 추가 (UI 피드백용)
                 setMessages(prev => [...prev, content]);
             }
             
@@ -83,14 +83,12 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
                 const TOTAL_BUDGET = aiSettings.maxContextTokens * 0.95; 
                 const retrievedItems = await searchVectorIndices(queryText, aiSettings.retrievalTopK);
                 const retrievedContext = retrievedItems.map(item => item.text);
-
                 const worldviewText = `
 ### 세계관 설정 (Worldview)
 - 장르: ${contextSettings.worldview?.genre || '미설정'}
 - 상세: ${contextSettings.worldview?.details || '미설정'}
 - 핵심 규칙: ${(contextSettings.worldview?.rules || []).map(r => `- ${r.keyword}: ${r.description}`).join('\\n') || '미설정'}
 `;
-
                 const [systemTokens, worldviewTokens, worldTokens, memoryTokens, loreTokens] = await Promise.all([
                     geminiApi.countTokens(aiSettings.systemInstruction, aiSettings.mainModel, signal),
                     geminiApi.countTokens(worldviewText, aiSettings.mainModel, signal),
@@ -100,16 +98,13 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
                 ]);
                 const fixedContextTokens = systemTokens + worldviewTokens + worldTokens + memoryTokens + loreTokens;
                 const HISTORY_BUDGET = TOTAL_BUDGET - fixedContextTokens;
-
                 if (HISTORY_BUDGET <= 0) throw new Error("고정 컨텍스트가 너무 큽니다.");
-                
                 let shortTermMemory = history.slice(-aiSettings.shortTermMemoryTurns);
                 let historyTokens = shortTermMemory.length > 0 ? await geminiApi.countTokens(JSON.stringify(shortTermMemory), aiSettings.mainModel, signal) : 0;
                 while (historyTokens > HISTORY_BUDGET && shortTermMemory.length > 1) {
                     shortTermMemory.shift();
                     historyTokens = await geminiApi.countTokens(JSON.stringify(shortTermMemory), aiSettings.mainModel, signal);
                 }
-                
                 const contextTokenInfo = { system: systemTokens, worldview: worldviewTokens, world: worldTokens, memory: memoryTokens, lore: loreTokens, chat: historyTokens, total: fixedContextTokens + historyTokens };
                 return { shortTermMemory, retrievedItems, contextTokenInfo, worldviewText };
             };
@@ -119,27 +114,83 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
             setContextInfo(contextTokenInfo);
             setRetrievedMemories(retrievedItems);
 
-            const storyData = { characters, contextSettings, aiSettings, worldState: effectiveWorldState, worldviewText };
+            const storyData = { characters, contextSettings, aiSettings, worldState: effectiveWorldState, worldviewText, assets };
             const retrievedContext = retrievedItems.map(item => item.text);
             
+            // --- 1. 텍스트 생성 ---
             const { data: aiResultData, logEntry } = await storyOrchestrator.generateResponse(storyData, promptType, content, shortTermMemory, retrievedContext, signal);
             addApiLogEntry(logEntry);
 
             const finalUserMessage = { ...content, status: 'sent', id: Date.now() };
+            const responseContentForPostProcessing = aiResultData.style === 'Novel' ? aiResultData.content.map(c => c.text || c.line).join(' ') : aiResultData.content;
+            
+            let attachedImageUrl = null;
+            let selectedFileNameForDebug = null;
+
+            // --- 2. 이미지 선택 (조건부) ---
+            if (aiSettings.enableImageGeneration && assets && assets.length > 0) {
+                setLastAiImageAssetChoice({ choice: 'pending...', analyzedText: responseContentForPostProcessing }); 
+                try {
+                    const fileNames = assets.map(a => a.fileName);
+                    // [BUG FIX] 채팅 모드에서는 AI가 직접 이미지 파일명을 반환하므로, 그 값을 우선적으로 사용합니다.
+                    const imageChoiceFromAi = aiResultData.style === 'Chat' ? aiResultData.attachedImage : null;
+                    
+                    if (imageChoiceFromAi) {
+                        selectedFileNameForDebug = imageChoiceFromAi;
+                    } else {
+                        const { fileName, logEntry: imageSelectLog } = await utilityGenerator.selectBestImage(responseContentForPostProcessing, fileNames, aiSettings.auxModel, aiSettings.safetySettings);
+                        addApiLogEntry(imageSelectLog);
+                        selectedFileNameForDebug = fileName;
+                    }
+                    
+                    setLastAiImageAssetChoice({ choice: selectedFileNameForDebug || 'none', analyzedText: responseContentForPostProcessing }); 
+
+                    let finalAsset = null;
+                    if (selectedFileNameForDebug && selectedFileNameForDebug.toLowerCase() !== 'none') {
+                        finalAsset = assets.find(a => a.fileName === selectedFileNameForDebug);
+                    }
+                    if (!finalAsset) {
+                        finalAsset = assets.find(a => {
+                            const nameOnly = a.fileName.split('.').slice(0, -1).join('.').toLowerCase().trim();
+                            return nameOnly === 'default' || nameOnly === 'none';
+                        });
+                    }
+                    if (finalAsset) {
+                        attachedImageUrl = finalAsset.storageUrl;
+                    }
+                } catch (e) {
+                    console.error("이미지 선택 AI 호출 실패 또는 처리 중 오류:", e);
+                    setLastAiImageAssetChoice({ choice: `error: ${e.message}`, analyzedText: responseContentForPostProcessing });
+                    const fallbackAsset = assets.find(a => {
+                        const nameOnly = a.fileName.split('.').slice(0, -1).join('.').toLowerCase().trim();
+                        return nameOnly === 'default' || nameOnly === 'none';
+                    });
+                    if (fallbackAsset) {
+                        attachedImageUrl = fallbackAsset.storageUrl;
+                    }
+                }
+            } else {
+                setLastAiImageAssetChoice({ choice: null, analyzedText: null });
+            }
 
             const finalAiMessage = { 
                 id: Date.now() + 1, 
                 sender: 'ai', 
                 style: aiResultData.style, 
-                // [FIX] 채팅 모드와 소설 모드의 데이터 구조가 다르므로, content를 그대로 할당합니다.
-                // 채팅 모드: string, 소설 모드: array
                 content: aiResultData.content, 
-                // [FIX] 채팅 모드에서는 title이 없으므로 optional chaining을 사용합니다.
+                attachedImageUrl: attachedImageUrl, // Top-level for Chat mode
                 ...(aiResultData.title && { title: aiResultData.title }), 
                 isSummarized: false,
                 status: 'sent'
             };
             
+            // [BUG FIX] 소설 모드일 경우, 이미지 URL을 content 배열의 첫 번째 요소에 주입합니다.
+            if (finalAiMessage.style === 'Novel' && attachedImageUrl && Array.isArray(finalAiMessage.content) && finalAiMessage.content.length > 0) {
+                finalAiMessage.content[0].attachedImageUrl = attachedImageUrl;
+                // 혼동을 막기 위해 최상위 속성은 삭제합니다.
+                delete finalAiMessage.attachedImageUrl;
+            }
+
             setMessages(prev => [...prev.filter(m => m.id !== content.id), finalAiMessage]);
             
             if (promptType !== 'reroll') {
@@ -147,12 +198,8 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
             }
             await storyService.addMessage(currentStoryId, finalAiMessage);
 
-            // --- 후처리 로직 ---
-            const responseContentForPostProcessing = finalAiMessage.content;
-            // [BUG FIX] 채팅 모드에서는 content가 문자열이므로, 이를 직접 recentEventsText로 사용합니다.
-            const recentEventsText = Array.isArray(responseContentForPostProcessing) 
-                ? responseContentForPostProcessing.map(c => c.text || c.line).join(' ') 
-                : (typeof responseContentForPostProcessing === 'string' ? responseContentForPostProcessing : "");
+            // --- 3. 후처리 (시간, 목표, 감정) ---
+            const recentEventsText = responseContentForPostProcessing;
             
             let finalWorldState = effectiveWorldState;
             if (promptType !== 'new_scene' && recentEventsText) {
@@ -174,8 +221,7 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
             
             let charactersWithUpdates = [...characters];
             if (aiSettings.enableDynamicEvaluation) {
-                const activeNpcNames = new Set(Array.isArray(responseContentForPostProcessing) ? responseContentForPostProcessing.filter(c => c.type === 'dialogue' && c.character).map(c => c.character.trim()) : []);
-                
+                const activeNpcNames = new Set(aiResultData.style === 'Novel' ? aiResultData.content.filter(c => c.type === 'dialogue' && c.character).map(c => c.character.trim()) : []);
                 const goalPromises = characters.map(async (char) => {
                     if (!char.isUser && activeNpcNames.has(char.name.trim())) {
                         try {
@@ -207,7 +253,6 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
             }
             setCharacters(charactersWithUpdates);
 
-
             if (promptType === 'new_scene' && finalAiMessage.title) {
                 setStoryTitle(finalAiMessage.title);
                 await storyService.saveStory(currentStoryId, { title: finalAiMessage.title });
@@ -222,7 +267,6 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
             }
             await storyService.saveStory(currentStoryId, { characters: charactersToSave, worldState: finalWorldState });
 
-
         } catch (error) {
             console.error("[CRITICAL] _orchestrateStoryGeneration에서 처리되지 않은 예외 발생:", error);
             setMessages(prev => prev.filter(m => m.id !== content.id));
@@ -235,7 +279,7 @@ export const useStoryGeneration = (storyDataState, uiState, showToast, addApiLog
             setIsProcessing(false);
             abortControllerRef.current = null;
         }
-    }, [characters, contextSettings, aiSettings, worldState, searchVectorIndices, _addEntryToIndex, fetchStoryList, addApiLogEntry, setIsProcessing, setRetrievedMemories, setContextInfo, setWorldState, setCharacters, setStoryTitle, showToast, setLatestEmotionAnalysis, setMessages]);
+    }, [characters, contextSettings, aiSettings, worldState, assets, searchVectorIndices, _addEntryToIndex, fetchStoryList, addApiLogEntry, setIsProcessing, setRetrievedMemories, setContextInfo, setWorldState, setCharacters, setStoryTitle, showToast, setLatestEmotionAnalysis, setMessages, setLastAiImageAssetChoice]);
 
     const handleSendMessage = useCallback((text) => {
         if (!text.trim() || isProcessing || !storyId) return;

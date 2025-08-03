@@ -3,11 +3,10 @@
 import { callGeminiApi, createApiLogEntry } from './geminiApi';
 import { USER_ACTION_PROMPTS } from '../../constants';
 
-// [FIX] 스트리밍 대신 단일 JSON 응답을 처리하는 함수로 변경합니다.
+// 소설 모드 응답을 생성하는 내부 함수
 async function _generateNovelResponse({ storyData, promptType, content, contextHistory, baseContext, retrievedContextText, signal }) {
     const { aiSettings } = storyData;
 
-    // [FIX] 백업 파일에서 확인된, 안정적인 JSON 스키마를 정의합니다.
     const responseSchema = {
         type: "OBJECT",
         properties: {
@@ -16,8 +15,24 @@ async function _generateNovelResponse({ storyData, promptType, content, contextH
                 type: "ARRAY",
                 items: {
                     oneOf: [
-                        { type: "OBJECT", properties: { type: { "enum": ["narration"] }, text: { type: "STRING" } }, required: ["type", "text"] },
-                        { type: "OBJECT", properties: { type: { "enum": ["dialogue"] }, character: { type: "STRING" }, line: { type: "STRING" }, thought: { type: "STRING" } }, required: ["type", "character", "line"] }
+                        { 
+                            type: "OBJECT", 
+                            properties: { 
+                                type: { "enum": ["narration"] }, 
+                                text: { type: "STRING" },
+                            }, 
+                            required: ["type", "text"] 
+                        },
+                        { 
+                            type: "OBJECT", 
+                            properties: { 
+                                type: { "enum": ["dialogue"] }, 
+                                character: { type: "STRING" }, 
+                                line: { type: "STRING" }, 
+                                thought: { type: "STRING" },
+                            }, 
+                            required: ["type", "character", "line"] 
+                        }
                     ]
                 }
             }
@@ -30,7 +45,7 @@ async function _generateNovelResponse({ storyData, promptType, content, contextH
         topK: aiSettings.topK, 
         topP: aiSettings.topP, 
         maxOutputTokens: aiSettings.maxOutputTokens,
-        responseMimeType: "application/json", // JSON 응답을 명시적으로 요청합니다.
+        responseMimeType: "application/json",
         responseSchema,
     };
 
@@ -56,8 +71,6 @@ async function _generateNovelResponse({ storyData, promptType, content, contextH
         safetySettings: aiSettings.safetySettings,
     };
 
-    console.warn("[DEBUG] 최종 API 요청 페이로드:", JSON.parse(JSON.stringify(payload)));
-
     const result = await callGeminiApi(payload, aiSettings.mainModel, 'generateContent', signal);
     const resultText = result.candidates[0].content?.parts?.[0]?.text || "";
     const logEntry = createApiLogEntry('generateNovelResponse', aiSettings.mainModel, result.usageMetadata, JSON.stringify(payload, null, 2));
@@ -72,15 +85,18 @@ async function _generateNovelResponse({ storyData, promptType, content, contextH
     }
 }
 
-// [PD NOTE] 채팅 모드 응답 생성 로직을 구현합니다.
+// 채팅 모드 응답을 생성하는 내부 함수
 async function _generateChatResponse({ storyData, promptType, content, contextHistory, baseContext, retrievedContextText, signal }) {
     const { aiSettings } = storyData;
 
-    // 채팅 모드는 단순 텍스트 응답을 받으므로, 스키마를 간단하게 정의합니다.
+    // [BUG FIX] 채팅 모드에서도 이미지 선택을 위해 응답 스키마를 수정합니다.
+    // AI는 이제 텍스트 응답과 함께, 선택적으로 이미지 파일명을 반환할 수 있습니다.
     const responseSchema = {
         type: "OBJECT",
         properties: {
-            response: { type: "STRING" }
+            response: { type: "STRING" },
+            // attachedImage 필드를 스키마에 추가하여 AI가 파일명을 반환하도록 유도합니다.
+            attachedImage: { type: "STRING" } 
         },
         required: ["response"]
     };
@@ -94,8 +110,6 @@ async function _generateChatResponse({ storyData, promptType, content, contextHi
         responseSchema,
     };
 
-    // 채팅 모드의 히스토리는 단순 텍스트의 연속입니다.
-    // [BUG FIX] AI의 메시지는 content에, 유저의 메시지는 text에 담겨있으므로 이를 분기처리합니다.
     const apiHistory = contextHistory.map(msg => ({
         role: msg.sender === 'player' ? 'user' : 'model',
         parts: [{ text: msg.sender === 'ai' ? msg.content : msg.text }] 
@@ -118,20 +132,20 @@ async function _generateChatResponse({ storyData, promptType, content, contextHi
         safetySettings: aiSettings.safetySettings,
     };
     
-    console.warn("[DEBUG] 최종 API 요청 페이로드 (채팅 모드):", JSON.parse(JSON.stringify(payload)));
-
     const result = await callGeminiApi(payload, aiSettings.mainModel, 'generateContent', signal);
     const resultText = result.candidates[0].content?.parts?.[0]?.text || "";
     const logEntry = createApiLogEntry('generateChatResponse', aiSettings.mainModel, result.usageMetadata, JSON.stringify(payload, null, 2));
 
     try {
         const parsedResult = JSON.parse(resultText);
-        // storyOrchestrator가 기대하는 { content: ..., style: ... } 형태가 아닌,
-        // StoryBlock이 기대하는 { text: ..., style: ... } 형태로 맞춰주어야 합니다.
-        // 그리고 최종적으로 AI 응답 메시지는 content 필드에 텍스트를 담아 저장합니다.
-        const responseData = { content: parsedResult.response, style: 'Chat' };
+        // [BUG FIX] 파싱된 결과에서 response와 attachedImage를 모두 추출하여 반환합니다.
+        const responseData = { 
+            content: parsedResult.response, 
+            // AI가 선택한 이미지 파일명을 함께 전달합니다.
+            attachedImage: parsedResult.attachedImage, 
+            style: 'Chat' 
+        };
         
-        // 최종 반환값은 _orchestrateStoryGeneration 함수와의 약속을 지킵니다.
         return { data: responseData, logEntry };
     } catch (e) {
         console.error("--- Chat Mode JSON Parsing Error ---", e, "Raw text:", resultText);
@@ -140,25 +154,37 @@ async function _generateChatResponse({ storyData, promptType, content, contextHi
     }
 }
 
-
+/**
+ * AI의 텍스트 응답 생성을 담당하는 메인 함수.
+ * 이제 이 함수는 텍스트와 함께 AI가 직접 선택한 이미지 파일명(선택사항)도 반환합니다.
+ */
 export const generateResponse = async (storyData, promptType, content, contextHistory, retrievedContext, signal) => {
-    const { characters, contextSettings, worldState, aiSettings, worldviewText } = storyData;
+    const { characters, contextSettings, worldState, aiSettings, worldviewText, assets } = storyData;
 
     const characterProfiles = characters.map(c => {
         const { vector, generationConcept, profileImageUrl, ...profile } = c;
         return profile;
     });
 
-    const baseContext = `${worldviewText}\n### 시작 장면 (Starting Scene)\n- 현재 시간: ${worldState.day}일차 ${worldState.hour}시 ${worldState.minute}분\n- 현재 날씨: ${worldState.weather}\n- 현재 상황: ${contextSettings.situation}\n- 등장인물 프로필: ${JSON.stringify(characterProfiles, null, 2)}`;
+    const availableAssetsText = (assets && assets.length > 0) 
+        ? `\n### 사용 가능한 에셋 목록 (availableAssets)\n${JSON.stringify(assets.reduce((acc, asset) => {
+            const ownerKey = asset.ownerId === 'shared' ? '공용' : characters.find(c => String(c.id) === String(asset.ownerId))?.name || '알수없음';
+            if (!acc[ownerKey]) acc[ownerKey] = [];
+            acc[ownerKey].push(asset.fileName);
+            return acc;
+          }, {}))}`
+        : "";
+
+    const baseContext = `${worldviewText}\n### 시작 장면 (Starting Scene)\n- 현재 시간: ${worldState.day}일차 ${worldState.hour}시 ${worldState.minute}분\n- 현재 날씨: ${worldState.weather}\n- 현재 상황: ${contextSettings.situation}\n- 등장인물 프로필: ${JSON.stringify(characterProfiles, null, 2)}${availableAssetsText}`;
     const retrievedContextText = retrievedContext.length > 0 ? `\n\n### 소환된 기억 (Retrieved Scenes)\n${retrievedContext.join('\n\n')}` : "";
 
     const basePayload = { storyData, promptType, content, contextHistory, baseContext, retrievedContextText, signal };
 
+    // [BUG FIX] 채팅 모드에서도 이미지 선택 로직이 포함된 AI 호출을 하도록 수정합니다.
+    // 이제 두 모드 모두 AI 응답에 attachedImage 필드가 포함될 수 있습니다.
     if (aiSettings.narrativeStyle === 'Chat') {
-        return await _generateChatResponse(basePayload);
+        return _generateChatResponse(basePayload);
     } else {
-        return await _generateNovelResponse(basePayload);
+        return _generateNovelResponse(basePayload);
     }
 };
-
-// ===== End of project-hsa\src\services\gemini\storyOrchestrator.js =====

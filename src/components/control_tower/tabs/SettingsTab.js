@@ -12,14 +12,11 @@ const SettingsTab = () => {
     const { aiSettings, contextInfo, retrievedMemories, apiLog } = storyProps;
     const { setAiSettings } = handlerProps;
 
-    // [BUG FIX] 숫자 입력 필드가 비워지지 않는 문제를 해결합니다.
-    // 빈 문자열('')을 허용하여 입력 필드를 완전히 비울 수 있도록 수정합니다.
     const handleSettingChange = (key, value) => {
       const numericFields = ['temperature', 'topK', 'topP', 'maxOutputTokens', 'maxContextTokens', 'shortTermMemoryTurns', 'retrievalTopK'];
       
       let finalValue = value;
       if (numericFields.includes(key)) {
-          // 값이 비어있으면 빈 문자열을 그대로 사용하고, 그렇지 않으면 숫자로 변환합니다.
           finalValue = value === '' ? '' : Number(value);
       } else if (typeof value === 'boolean') {
           finalValue = value;
@@ -61,13 +58,13 @@ const SettingsTab = () => {
       </div>
     );
 
-    const ModelSelector = ({ label, description, value, onChange }) => (
+    const ModelSelector = ({ label, description, value, onChange, modelKey }) => (
       <div className="font-sans">
           <label className="block text-sm font-medium text-[var(--text-primary)]">{label}</label>
           <p className="text-xs text-[var(--text-secondary)] mb-2">{description}</p>
           <select
               value={value}
-              onChange={onChange}
+              onChange={(e) => onChange(modelKey, e.target.value)}
               className="w-full bg-[var(--input-bg)] p-2.5 rounded-lg text-sm text-[var(--text-primary)] border border-[var(--border-primary)] focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 transition-all"
           >
               {GEMINI_MODELS.map(model => (
@@ -84,8 +81,20 @@ const SettingsTab = () => {
           <div className="space-y-6">
               <NarrativeStyleSelector value={aiSettings.narrativeStyle} onChange={handleSettingChange} />
               <div className="w-full h-px bg-[var(--border-primary)] opacity-50"></div>
-              <ModelSelector label="메인 엔진 (Main Engine)" description="페르소나 연기, 장면 묘사를 담당합니다." value={aiSettings.mainModel} onChange={e => handleSettingChange('mainModel', e.target.value)} />
-              <ModelSelector label="보조 엔진 (Auxiliary Engine)" description="페르소나 프로필 생성 등 보조 작업을 처리합니다." value={aiSettings.auxModel} onChange={e => handleSettingChange('auxModel', e.target.value)} />
+              <ModelSelector 
+                label="메인 엔진 (Main Engine)" 
+                description="페르소나 연기, 장면 묘사를 담당합니다. Pro 모델은 비싸지만 고품질입니다." 
+                value={aiSettings.mainModel} 
+                onChange={handleSettingChange}
+                modelKey="mainModel"
+              />
+              <ModelSelector 
+                label="보조 엔진 (Auxiliary Engine)" 
+                description="페르소나 프로필 생성 등 보조 작업을 처리합니다." 
+                value={aiSettings.auxModel} 
+                onChange={handleSettingChange}
+                modelKey="auxModel"
+              />
           </div>
         </Card>
         <Card>
@@ -106,6 +115,13 @@ const SettingsTab = () => {
                 description="AI가 노골적인 성적, 폭력적 묘사를 생성하도록 허용합니다."
                 checked={aiSettings.enableNsfw}
                 onChange={() => handleSettingChange('enableNsfw', !aiSettings.enableNsfw)}
+              />
+              {/* [추가] 이미지 연출 활성화 토글 스위치 */}
+              <ToggleSwitch
+                label="이미지 연출 활성화"
+                description="AI가 응답에 맞춰 업로드된 에셋 이미지를 함께 표시합니다. (추가 비용 발생)"
+                checked={aiSettings.enableImageGeneration}
+                onChange={() => handleSettingChange('enableImageGeneration', !aiSettings.enableImageGeneration)}
               />
           </div>
         </Card>

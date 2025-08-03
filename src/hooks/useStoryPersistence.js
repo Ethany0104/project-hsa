@@ -6,11 +6,11 @@ import { DEFAULT_USER, DEFAULT_CONTEXT_SETTINGS, DEFAULT_AI_SETTINGS, DEFAULT_WO
 
 export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     const {
-        storyId, characters, contextSettings, aiSettings, worldState, storyTitle, apiLog, pinnedItems,
+        storyId, characters, contextSettings, aiSettings, worldState, storyTitle, apiLog, pinnedItems, assets,
         setStoryId, setStoryTitle, setMessages, setCharacters, setContextSettings,
         setAiSettings, setWorldState, setVectorIndices, setApiLog, setContextInfo,
         setRetrievedMemories, setBlueprintTemplates, setCharacterTemplates, setStoryList,
-        setPinnedItems
+        setPinnedItems, setAssets
     } = storyDataState;
 
     const {
@@ -64,10 +64,11 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         setRetrievedMemories([]);
         setPdChatHistory([]);
         setPinnedItems([]);
+        setAssets([]);
     }, [
         setStoryId, setStoryTitle, setMessages, setCharacters, setContextSettings,
         setAiSettings, setWorldState, setVectorIndices, setApiLog,
-        setContextInfo, setRetrievedMemories, setPdChatHistory, setPinnedItems,
+        setContextInfo, setRetrievedMemories, setPdChatHistory, setPinnedItems, setAssets
     ]);
 
     const fetchStoryList = useCallback(async () => {
@@ -109,6 +110,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
                 setWorldState({ ...DEFAULT_WORLD_STATE, ...(data.worldState || {}) });
                 setApiLog(data.apiLog || { summary: {}, log: [] });
                 setPinnedItems(data.pinnedItems || []);
+                setAssets(data.assets || []);
 
                 const [scene, lore, character] = await Promise.all([
                     storyService.loadIndexCollection(id, 'sceneIndex'),
@@ -140,7 +142,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     }, [
         resetToWelcome, showToast, setIsLoading, setCharacters, setContextSettings,
         setAiSettings, setWorldState, setApiLog, setVectorIndices,
-        setStoryId, setStoryTitle, setMessages, setPdChatHistory, setPinnedItems,
+        setStoryId, setStoryTitle, setMessages, setPdChatHistory, setPinnedItems, setAssets
     ]);
 
     useEffect(() => {
@@ -174,7 +176,8 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
                 title: storyTitle, 
                 worldState, 
                 apiLog, 
-                pinnedItems 
+                pinnedItems,
+                assets,
             };
             await storyService.saveStory(storyId, storyData);
             await fetchStoryList();
@@ -186,33 +189,39 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         }
     }, [
         storyId, characters, contextSettings, aiSettings, worldState,
-        storyTitle, apiLog, pinnedItems,
+        storyTitle, apiLog, pinnedItems, assets,
         fetchStoryList, setIsProcessing, showToast
     ]);
 
-    // [추가] 캐릭터 정보만 업데이트하고 즉시 Firestore에 저장하는 핸들러
+    /**
+     * [신규] 로컬 상태의 캐릭터 정보만 업데이트하는 함수.
+     * 장면이 시작되기 전, 임시로 캐릭터 정보를 수정하고 UI에 반영하기 위해 사용됩니다.
+     */
+    const handleUpdateCharacterLocally = useCallback((updatedCharacter) => {
+        const updatedCharacters = characters.map(c => c.id === updatedCharacter.id ? updatedCharacter : c);
+        setCharacters(updatedCharacters);
+        showToast(`'${updatedCharacter.name}' 정보가 임시 저장되었습니다.`);
+    }, [characters, setCharacters, showToast]);
+
+
+    /**
+     * [기존] 캐릭터 정보를 업데이트하고 Firestore에 저장하는 함수.
+     * 장면이 시작된 후에만 호출되어야 합니다.
+     */
     const handleUpdateAndSaveCharacter = useCallback(async (updatedCharacter) => {
         if (!storyId) {
             showToast("캐릭터를 저장하려면 먼저 장면을 시작해야 합니다.", "error");
             return;
         }
-        
-        // 1. React 상태를 먼저 업데이트합니다.
         const updatedCharacters = characters.map(c => c.id === updatedCharacter.id ? updatedCharacter : c);
         setCharacters(updatedCharacters);
-
-        // 2. Firestore에 저장할 수 있도록 데이터를 준비합니다.
         const charactersToSave = prepareCharactersForSave(updatedCharacters);
-
-        // 3. Firestore에 characters 필드만 업데이트합니다.
         try {
             await storyService.saveStory(storyId, { characters: charactersToSave });
             showToast(`'${updatedCharacter.name}' 정보가 저장되었습니다.`);
         } catch (error) {
             console.error("캐릭터 저장 오류:", error);
             showToast("캐릭터 정보 저장 중 오류가 발생했습니다.", "error");
-            // 오류 발생 시 상태를 이전으로 되돌릴 수 있습니다 (선택적).
-            // setCharacters(characters); 
         }
     }, [storyId, characters, setCharacters, showToast]);
 
@@ -279,7 +288,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         try {
             const templateToSave = prepareCharactersForSave([characterData])[0];
             templateToSave.id = Date.now().toString();
-
             await storyService.saveCharacterTemplate(templateToSave);
             await fetchCharacterTemplates();
             showToast(`'${characterData.name}' 페르소나가 프리셋으로 저장되었습니다.`);
@@ -292,21 +300,11 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
 
     const handleLoadCharacterTemplate = useCallback((template) => {
         const loadedTemplate = parseCharactersAfterLoad([template])[0];
-
         if (loadedTemplate.isUser) {
-            setCharacters(prev => prev.map(c => {
-                if (c.isUser) {
-                    return { ...loadedTemplate, id: c.id, isUser: true };
-                }
-                return c;
-            }));
+            setCharacters(prev => prev.map(c => c.isUser ? { ...loadedTemplate, id: c.id, isUser: true } : c));
             showToast(`유저 '${loadedTemplate.name}' 프리셋을 불러왔습니다.`);
         } else {
-            const newCharacter = {
-                ...loadedTemplate,
-                id: Date.now(),
-                isUser: false,
-            };
+            const newCharacter = { ...loadedTemplate, id: Date.now(), isUser: false };
             if (characters.some(c => c.name === newCharacter.name)) {
                 showToast(`'${newCharacter.name}' 이름의 페르소나가 이미 존재합니다.`);
                 return;
@@ -335,17 +333,12 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         try {
             const [hour, minute] = contextSettings.startTime.split(':').map(Number);
             const initialWorldState = { day: 1, hour: isNaN(hour) ? 9 : hour, minute: isNaN(minute) ? 0 : minute, weather: contextSettings.startWeather || '실내' };
-            
             const charactersToSave = prepareCharactersForSave(characters);
-            
-            const newStoryData = { title: "새로운 장면", characters: charactersToSave, contextSettings, aiSettings, worldState: initialWorldState, apiLog, pinnedItems };
+            const newStoryData = { title: "새로운 장면", characters: charactersToSave, contextSettings, aiSettings, worldState: initialWorldState, apiLog, pinnedItems, assets: [] };
             const newId = await storyService.createNewStory(newStoryData);
-            
             await fetchStoryList();
             await handleLoadStory(newId);
-            
             return newId;
-
         } catch (error) {
             showToast(`새 장면 생성 실패: ${error.message}`, 'error');
             setIsProcessing(false);
@@ -367,7 +360,8 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         handleDeleteCharacterTemplate,
         fetchCharacterTemplates,
         handleNewScene,
-        // [추가] 새로 만든 핸들러를 export합니다.
         handleUpdateAndSaveCharacter,
+        // [신규] 로컬 업데이트 함수를 export합니다.
+        handleUpdateCharacterLocally,
     };
 };

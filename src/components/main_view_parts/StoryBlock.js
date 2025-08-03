@@ -53,23 +53,27 @@ const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage,
         
         return (
             <div className="my-8 group relative animate-fadeIn pb-12">
+                {/* [MODIFIED] v1.0 개선 계획에 따라, 이제 message.content의 각 아이템에 attachedImageUrl이 있을 수 있습니다. */}
                 {visibleContent.map((item, index) => {
-                    if (item.type === 'narration') {
-                        const textContent = item.text;
-                        if (!textContent) return null;
-                        return <p key={index} className="text-lg leading-9 text-[var(--text-primary)] whitespace-pre-wrap font-serif my-4">{textContent}</p>;
-                    }
-                    
-                    if (item.type === 'dialogue') {
-                        const characterObject = allCharacters.find(c => c.id === item.characterId || c.name === item.character);
-                        return (
-                            <React.Fragment key={index}>
+                    const characterObject = item.type === 'dialogue' ? allCharacters.find(c => c.id === item.characterId || c.name === item.character) : null;
+                    return (
+                        <React.Fragment key={index}>
+                            {/* 이미지를 텍스트나 대화 블록 위에 렌더링합니다. */}
+                            {item.attachedImageUrl && (
+                                <div className="mb-6 mt-4 animate-fadeIn">
+                                    <img src={item.attachedImageUrl} alt="Scene illustration" className="rounded-lg shadow-lg max-w-full h-auto mx-auto" style={{ maxHeight: '500px' }} />
+                                </div>
+                            )}
+
+                            {item.type === 'narration' && item.text && (
+                                <p className="text-lg leading-9 text-[var(--text-primary)] whitespace-pre-wrap font-serif my-4">{item.text}</p>
+                            )}
+                            
+                            {item.type === 'dialogue' && (
                                 <DialogueBlock character={characterObject} line={item.line} thought={item.thought} />
-                            </React.Fragment>
-                        );
-                    }
-                    
-                    return null;
+                            )}
+                        </React.Fragment>
+                    );
                 })}
                 {isLastAiMessage && (
                     <div className="absolute bottom-4 left-0 flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -82,13 +86,15 @@ const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage,
     }
 
     // AI 메시지 렌더링 (채팅 모드)
+    // Chat 모드는 메시지 객체 최상위에 attachedImageUrl이 하나만 존재합니다.
     if (message.sender === 'ai' && message.style === 'Chat' && typeof message.content === 'string') {
         return (
             <ChatMessageBlock
-                text={message.content} // message.text -> message.content 로 수정
+                text={message.content}
                 isLastAiMessage={isLastAiMessage}
                 onReroll={onReroll}
                 onContinue={onContinue}
+                attachedImageUrl={message.attachedImageUrl}
             />
         );
     }

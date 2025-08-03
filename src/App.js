@@ -20,8 +20,8 @@ function App() {
 
   const {
     setEditingState,
-    // [수정] setCharacters 대신 handleUpdateAndSaveCharacter를 가져옵니다.
-    handleUpdateAndSaveCharacter,
+    // [수정] handleUpdateAndSaveCharacter 대신 통합 핸들러인 handleCharacterUpdate를 가져옵니다.
+    handleCharacterUpdate,
     setToast,
     handleToggleFloater,
   } = handlerProps;
@@ -57,11 +57,6 @@ function App() {
   const handleCloseSheets = useCallback(() => {
     setEditingState(prev => ({ ...prev, isOpen: false }));
   }, [setEditingState]);
-
-  // [삭제] 기존의 handleUpdateCharacter 함수는 이제 필요 없습니다.
-  // const handleUpdateCharacter = useCallback((updatedCharacter) => {
-  //   setCharacters(prev => prev.map(c => c.id === updatedCharacter.id ? updatedCharacter : c));
-  // }, [setCharacters]);
 
   const editingCharacter = useMemo(() => {
     if (!editingState.characterId) return null;
@@ -99,13 +94,13 @@ function App() {
         onDismiss={() => setToast(prev => ({...prev, show: false}))} 
       />
 
-      {/* [수정] onUpdate prop에 handleUpdateAndSaveCharacter를 직접 전달합니다. */}
+      {/* [수정] onUpdate prop에 통합 핸들러인 handleCharacterUpdate를 전달합니다. */}
       <SideSheet isOpen={editingState.isOpen && editingState.type === 'user'} onClose={handleCloseSheets} size="narrow">
-        {editingCharacter && <UserSheetContent character={editingCharacter} onUpdate={handleUpdateAndSaveCharacter} onClose={handleCloseSheets} />}
+        {editingCharacter && <UserSheetContent character={editingCharacter} onUpdate={handleCharacterUpdate} onClose={handleCloseSheets} />}
       </SideSheet>
 
       <SideSheet isOpen={editingState.isOpen && editingState.type === 'persona'} onClose={handleCloseSheets} size="default">
-        {editingCharacter && <PersonaSheetContent character={editingCharacter} onUpdate={handleUpdateAndSaveCharacter} onClose={handleCloseSheets} />}
+        {editingCharacter && <PersonaSheetContent character={editingCharacter} onUpdate={handleCharacterUpdate} onClose={handleCloseSheets} />}
       </SideSheet>
 
       <PdChatModal isOpen={isPdChatOpen} onClose={togglePdChat} />

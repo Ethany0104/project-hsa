@@ -38,8 +38,11 @@ import {
     LucideArchive,
     LucideSmilePlus,
     LucideMonitor,
-    // [FEATURE] 페르소나 설정 내보내기용 아이콘 추가
     LucideFileDown,
+    LucideGalleryHorizontal,
+    LucideImages,
+    // [FIXED] v1.1 에러 해결: AssetTab에서 사용하는 LucideBug 아이콘을 추가합니다.
+    LucideBug,
 } from 'lucide-react';
 
 export const ICONS = {
@@ -80,6 +83,9 @@ export const ICONS = {
     LucideArchive,
     LucideSmilePlus,
     LucideMonitor,
-    // [FEATURE] 페르소나 설정 내보내기용 아이콘 추가
     LucideFileDown,
+    LucideGalleryHorizontal,
+    LucideImages,
+    // [FIXED] v1.1 에러 해결: AssetTab에서 사용하는 LucideBug 아이콘을 추가합니다.
+    LucideBug,
 };

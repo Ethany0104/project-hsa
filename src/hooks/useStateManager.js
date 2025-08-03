@@ -23,6 +23,10 @@ export const useStateManager = () => {
   const [blueprintTemplates, setBlueprintTemplates] = useState([]);
   const [characterTemplates, setCharacterTemplates] = useState([]);
   const [pinnedItems, setPinnedItems] = useState([]);
+  const [assets, setAssets] = useState([]);
+  // [수정] AI의 선택과 분석된 텍스트를 함께 저장하기 위해 객체 형태로 변경
+  const [lastAiImageAssetChoice, setLastAiImageAssetChoice] = useState({ choice: null, analyzedText: null });
+
 
   // --- UI States (사용자 인터페이스 상태) ---
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +40,6 @@ export const useStateManager = () => {
   const [characterToSave, setCharacterToSave] = useState(null);
   const [latestEmotionAnalysis, setLatestEmotionAnalysis] = useState(null);
   const [editingState, setEditingState] = useState({ isOpen: false, type: null, characterId: null });
-  // [FEATURE] 열려있는 페르소나 현황 창 ID 목록을 관리하는 상태 추가
   const [floatingStatusWindows, setFloatingStatusWindows] = useState([]);
 
 
@@ -56,6 +59,9 @@ export const useStateManager = () => {
     blueprintTemplates, setBlueprintTemplates,
     characterTemplates, setCharacterTemplates,
     pinnedItems, setPinnedItems,
+    assets, setAssets,
+    // [수정] storyDataState에 새로운 상태와 세터를 포함
+    lastAiImageAssetChoice, setLastAiImageAssetChoice,
   };
 
   const uiState = {
@@ -70,7 +76,6 @@ export const useStateManager = () => {
     characterToSave, setCharacterToSave,
     latestEmotionAnalysis, setLatestEmotionAnalysis,
     editingState, setEditingState,
-    // [FEATURE] 새 상태와 세터 함수를 UI 상태 객체에 포함
     floatingStatusWindows, setFloatingStatusWindows,
   };
 

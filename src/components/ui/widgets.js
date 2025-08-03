@@ -4,7 +4,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { ICONS } from '../../constants';
 import { Accordion } from './layouts';
 
+// [FIXED] v1.0 버그 수정: 'selectBestImage' 작업에 대한 표시 정보를 추가합니다.
 const API_LOG_DISPLAY_MAP = {
+    selectBestImage: { label: "이미지 선택", icon: ICONS.LucideImage, color: 'bg-green-500' },
     generateWorldview: { label: "세계관 생성", icon: ICONS.LucideGlobe, color: 'bg-cyan-500' },
     generateNarrativeProfile: { label: "서사 프로필", icon: ICONS.LucideDrama, color: 'bg-pink-500' },
     generateRoleplayGuide: { label: "연기 가이드", icon: ICONS.LucideTheater, color: 'bg-pink-400' },
@@ -58,11 +60,9 @@ export const WorldClock = ({ worldState }) => {
 
 
 export const ContextMeter = ({ contextInfo, maxTokens }) => {
-    // [FEATURE] contextInfo에서 worldview를 분해하고, 값이 없을 경우 0으로 초기화합니다.
     const { system = 0, worldview = 0, world = 0, memory = 0, lore = 0, chat = 0, total = 0 } = contextInfo;
     const percentage = maxTokens > 0 ? (total / maxTokens) * 100 : 0;
     
-    // [FEATURE] segments 배열에 'Worldview'를 추가합니다.
     const segments = [
         { key: 'system', value: system, color: 'bg-red-500', textColor: 'text-red-400', label: 'System', icon: ICONS.LucideFileText },
         { key: 'worldview', value: worldview, color: 'bg-cyan-500', textColor: 'text-cyan-400', label: 'Worldview', icon: ICONS.LucideGlobe },

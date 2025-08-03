@@ -10,6 +10,8 @@ import CharacterTab from './tabs/CharacterTab';
 import ContextTab from './tabs/ContextTab';
 import SettingsTab from './tabs/SettingsTab';
 import OocControlTab from './tabs/OocControlTab';
+// [추가] 새로 만든 AssetTab 컴포넌트를 가져옵니다.
+import AssetTab from './tabs/AssetTab';
 
 function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, activeTab, onTabChange, onToggleFloater }) {
   const { storyProps, handlerProps } = useStoryContext();
@@ -37,9 +39,11 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
       setIsStoryListOpen(false);
   };
 
+  // [수정] '에셋' 탭을 네비게이션에 추가합니다.
   const navItems = [
     { id: 'character', icon: ICONS.LucideUsers, label: '인물' },
     { id: 'context', icon: ICONS.LucideClipboardList, label: '상황' },
+    { id: 'assets', icon: ICONS.LucideGalleryHorizontal, label: '에셋' },
     { id: 'settings', icon: ICONS.LucideSettings, label: 'AI 설정' },
     { id: 'ooc', icon: ICONS.LucideMessageCircle, label: '연출' },
   ];
@@ -50,6 +54,8 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
       case 'context': return <ContextTab />;
       case 'character': return <CharacterTab onEditCharacter={onEditCharacter} onToggleFloater={onToggleFloater} />;
       case 'ooc': return <OocControlTab onTogglePdChat={onTogglePdChat} />;
+      // [추가] '에셋' 탭에 대한 렌더링 케이스를 추가합니다.
+      case 'assets': return <AssetTab />;
       default: return null;
     }
   }, [activeTab, onEditCharacter, onTogglePdChat, onToggleFloater]);
@@ -57,12 +63,10 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
   const user = characters.find(c => c.isUser);
   const isNewSceneDisabled = !contextSettings.situation || !user?.name || characters.filter(c => !c.isUser).length === 0;
 
-  // [FEATURE] 템플릿 불러오기 로직을 수정하여 contextSettings 전체를 불러오도록 합니다.
   const handleLoadBlueprint = (template) => {
     if (template && template.contextSettings) {
         setContextSettings(template.contextSettings);
     } else {
-        // [LEGACY] 구버전 템플릿(situation만 있는 경우)과의 호환성을 유지합니다.
         setContextSettings(prev => ({ ...prev, situation: template.situation }));
     }
   };

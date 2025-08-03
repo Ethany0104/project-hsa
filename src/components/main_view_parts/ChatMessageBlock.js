@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { ICONS } from '../../constants';
 import { ControlButton } from '../ui';
 
-const ChatMessageBlock = ({ text, isLastAiMessage, onReroll, onContinue }) => {
+// [수정] attachedImageUrl prop을 추가로 받습니다.
+const ChatMessageBlock = ({ text, isLastAiMessage, onReroll, onContinue, attachedImageUrl }) => {
     const parsedChat = useMemo(() => {
         if (!text || typeof text !== 'string') return [];
         
@@ -28,6 +29,13 @@ const ChatMessageBlock = ({ text, isLastAiMessage, onReroll, onContinue }) => {
 
     return (
         <div className="my-8 group relative animate-fadeIn pb-12">
+            {/* [추가] attachedImageUrl이 있으면 이미지를 렌더링합니다. */}
+            {attachedImageUrl && (
+                <div className="mb-4 animate-fadeIn">
+                    <img src={attachedImageUrl} alt="Scene illustration" className="rounded-lg shadow-lg max-w-full h-auto mx-auto" style={{ maxHeight: '400px' }} />
+                </div>
+            )}
+
             <div className="font-serif text-lg leading-9 text-[var(--text-primary)] space-y-4">
                 {parsedChat.map((part, index) => {
                     if (part.type === 'narration') {

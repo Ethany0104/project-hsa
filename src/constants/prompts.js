@@ -174,6 +174,19 @@ const generateEmotionProfile = {
 // [2] 동적 상호작용 및 스토리 진행 관련 프롬프트
 // =================================================================
 
+// [추가] 이미지 선택을 위한 프롬프트 템플릿
+const selectBestImage = {
+    system: `너는 주어진 텍스트의 감정과 상황을 분석하여, 제시된 파일명 목록 중 가장 적합한 파일명 '하나만'을 골라내는 텍스트 분류기다. 다른 설명 없이 오직 파일명만 응답해야 한다. 만약 적합한 이미지가 없다면 'none'을 반환하라.`,
+    user: (text, fileNames) => `# 분석할 텍스트\n"${text}"\n\n# 선택 가능한 파일명\n${JSON.stringify(fileNames)}\n\n# 가장 적합한 파일명:`,
+    schema: {
+        type: "OBJECT",
+        properties: {
+            fileName: { type: "STRING" }
+        },
+        required: ["fileName"]
+    }
+};
+
 const analyzeEmotion = {
     system: `너는 '감정 분석 AI'다. 페르소나의 프로필, 현재 상황, 최근 대화의 전체 흐름을 종합적으로 분석하여, 그의 내면에 흐르는 '기저 감정'을 추론해야 한다. 특정 발언에 대한 즉각적 반응이 아닌, 지속적인 감정 상태를 포착하는 것이 너의 임무다. 분석 이유는 반드시 한국어로, 감정 비율의 합은 1.0으로 정규화하여 제출하라.`,
     user: (character, situation, recentHistory) => {
@@ -291,5 +304,7 @@ export const PROMPT_TEMPLATES = {
     updatePersonalGoals,
     reEvaluateCoreBeliefs,
     summarizeEvents,
-    deduceTime
+    deduceTime,
+    // [추가] 새로 만든 이미지 선택 프롬프트를 export합니다.
+    selectBestImage,
 };

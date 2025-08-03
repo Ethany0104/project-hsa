@@ -7,7 +7,7 @@ import { useStoryGeneration } from '../hooks/useStoryGeneration';
 import { useProfileGeneration } from '../hooks/useProfileGeneration';
 import { useMemoryManagement } from '../hooks/useMemoryManagement';
 import { usePdChat } from '../hooks/usePdChat';
-import { utilityGenerator, storyService } from '../services';
+import { storyService, utilityGenerator } from '../services';
 
 const StoryContext = React.createContext(null);
 
@@ -40,36 +40,43 @@ export const StoryProvider = ({ children }) => {
     const memoryManagementHandlers = useMemoryManagement(storyDataState, uiState, showToast, addApiLogEntry, _addEntryToIndex);
     const pdChatHandlers = usePdChat(storyDataState, uiState, showToast, addApiLogEntry);
 
+    /**
+     * [신규] 캐릭터 정보 업데이트를 위한 통합 핸들러.
+     * storyId의 존재 여부에 따라 로컬 상태만 업데이트할지, Firestore에 저장까지 할지 결정합니다.
+     * 이 함수가 UI 컴포넌트에 전달될 단일 진입점 역할을 합니다.
+     */
+    const handleCharacterUpdate = useCallback((updatedCharacter) => {
+        if (storyDataState.storyId) {
+            // 장면이 시작된 경우: Firestore에 저장
+            persistenceHandlers.handleUpdateAndSaveCharacter(updatedCharacter);
+        } else {
+            // 장면이 시작되기 전인 경우: 로컬 상태만 업데이트 (임시 저장)
+            persistenceHandlers.handleUpdateCharacterLocally(updatedCharacter);
+        }
+    }, [storyDataState.storyId, persistenceHandlers]);
+
+
     const handleUploadProfileImage = useCallback(async (file, characterId) => {
         if (!storyDataState.storyId) {
             showToast("이미지를 업로드하려면 먼저 장면을 시작해야 합니다.", "error");
             return null;
         }
         if (!file) return null;
-
-        if (file.size > 5 * 1024 * 1024) { // 5MB 제한
+        if (file.size > 5 * 1024 * 1024) {
             showToast("이미지 파일은 5MB를 초과할 수 없습니다.", 'error');
             return null;
         }
-
         uiState.setIsProcessing(true);
         showToast("프로필 이미지를 업로드하는 중...", "default");
-
         try {
             const fileExtension = file.name.split('.').pop();
             const uploadPath = `images/${storyDataState.storyId}/${characterId}_${Date.now()}.${fileExtension}`;
-            
             const downloadURL = await storyService.uploadImage(file, uploadPath);
-            
             storyDataState.setCharacters(prev => 
-                prev.map(c => 
-                    c.id === characterId ? { ...c, profileImageUrl: downloadURL } : c
-                )
+                prev.map(c => c.id === characterId ? { ...c, profileImageUrl: downloadURL } : c)
             );
-            
             showToast("프로필 이미지가 성공적으로 업로드되었습니다.", "success");
             return downloadURL;
-
         } catch (error) {
             console.error("이미지 업로드 실패:", error);
             showToast(`이미지 업로드 실패: ${error.message}`, "error");
@@ -77,17 +84,68 @@ export const StoryProvider = ({ children }) => {
         } finally {
             uiState.setIsProcessing(false);
         }
-
     }, [storyDataState.storyId, storyDataState.setCharacters, uiState.setIsProcessing, showToast]);
 
+    const handleUploadAsset = useCallback(async (file, ownerId) => {
+        if (!storyDataState.storyId) {
+            showToast("에셋을 업로드하려면 먼저 장면을 시작해야 합니다.", "error");
+            return;
+        }
+        if (!ownerId) {
+            showToast("에셋 소유자를 선택해주세요.", "error");
+            return;
+        }
+        uiState.setIsProcessing(true);
+        try {
+            const fileExtension = file.name.split('.').pop();
+            const assetId = Date.now();
+            const uploadPath = `assets/${storyDataState.storyId}/${assetId}.${fileExtension}`;
+            
+            const downloadURL = await storyService.uploadImage(file, uploadPath);
+
+            const newAsset = {
+                id: assetId,
+                fileName: file.name,
+                storageUrl: downloadURL,
+                ownerId: ownerId,
+            };
+
+            const updatedAssets = [...(storyDataState.assets || []), newAsset];
+            storyDataState.setAssets(updatedAssets);
+
+            await storyService.saveStory(storyDataState.storyId, { assets: updatedAssets });
+            showToast(`'${file.name}' 에셋이 추가되었습니다.`, "success");
+
+        } catch (error) {
+            console.error("에셋 업로드 실패:", error);
+            showToast(`에셋 업로드 실패: ${error.message}`, "error");
+        } finally {
+            uiState.setIsProcessing(false);
+        }
+    }, [storyDataState.storyId, storyDataState.assets, storyDataState.setAssets, uiState.setIsProcessing, showToast]);
+
+    const handleDeleteAsset = useCallback(async (assetToDelete) => {
+        if (!storyDataState.storyId || !assetToDelete) return;
+        uiState.setIsProcessing(true);
+        try {
+            await storyService.deleteImage(assetToDelete.storageUrl);
+
+            const updatedAssets = storyDataState.assets.filter(asset => asset.id !== assetToDelete.id);
+            storyDataState.setAssets(updatedAssets);
+            await storyService.saveStory(storyDataState.storyId, { assets: updatedAssets });
+
+            showToast(`'${assetToDelete.fileName}' 에셋이 삭제되었습니다.`);
+        } catch (error) {
+            console.error("에셋 삭제 실패:", error);
+            showToast(`에셋 삭제 실패: ${error.message}`, "error");
+        } finally {
+            uiState.setIsProcessing(false);
+        }
+    }, [storyDataState.storyId, storyDataState.assets, storyDataState.setAssets, uiState.setIsProcessing, showToast]);
+
+
     const handleToggleFloater = useCallback((characterId) => {
-        uiState.setFloatingStatusWindows(prev => {
-            if (prev.includes(characterId)) {
-                return prev.filter(id => id !== characterId);
-            } else {
-                return [...prev, characterId];
-            }
-        });
+        uiState.setFloatingStatusWindows(prev => prev.includes(characterId) ? prev.filter(id => id !== characterId) : [...prev, characterId]);
     }, [uiState.setFloatingStatusWindows]);
 
     const handlePinItem = useCallback((text) => {
@@ -114,9 +172,7 @@ export const StoryProvider = ({ children }) => {
         const character = storyDataState.characters.find(c => c.id === characterId);
         if (!character) return;
         uiState.setReEvaluation({ isOpen: true, isLoading: true, character, proposal: null });
-        
         const recentMessages = storyDataState.messages.slice(-10).map(m => `[${m.sender}] ${m.style === 'Novel' ? (m.content.map(c => c.line || c.text).join(' ')) : m.text}`).join('\n');
-
         try {
             const { proposal, logEntry } = await utilityGenerator.reEvaluateCoreBeliefs(character, recentMessages, storyDataState.aiSettings.auxModel);
             addApiLogEntry(logEntry);
@@ -158,6 +214,8 @@ export const StoryProvider = ({ children }) => {
             ...profileGenerationHandlers,
             ...memoryManagementHandlers,
             ...pdChatHandlers,
+            // [수정] 새로 만든 통합 핸들러를 전달합니다.
+            handleCharacterUpdate,
             handleProposeReEvaluation,
             handleConfirmReEvaluation,
             handleRequestSaveCharacterTemplate,
@@ -168,18 +226,20 @@ export const StoryProvider = ({ children }) => {
             handleReorderPinnedItems,
             handleToggleFloater,
             handleUploadProfileImage,
+            handleUploadAsset,
+            handleDeleteAsset,
             showToast,
             _addEntryToIndex,
         }
     }), [
         storyDataState, uiState, persistenceHandlers, storyGenerationHandlers,
         profileGenerationHandlers, memoryManagementHandlers, pdChatHandlers,
-        handleProposeReEvaluation, handleConfirmReEvaluation,
+        handleCharacterUpdate, handleProposeReEvaluation, handleConfirmReEvaluation,
         showToast, _addEntryToIndex, handlePinItem, handleUnpinItem,
         handleUpdatePinnedItem, handleReorderPinnedItems,
         handleRequestSaveCharacterTemplate, handleConfirmSaveCharacterTemplate,
-        handleToggleFloater,
-        handleUploadProfileImage
+        handleToggleFloater, handleUploadProfileImage,
+        handleUploadAsset, handleDeleteAsset
     ]);
 
     return (

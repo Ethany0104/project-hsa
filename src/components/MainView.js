@@ -78,7 +78,7 @@ function MainViewFunc({ onToggleSidebar, personaImages }) {
         </div>
 
         {/* [수정] 컨텐츠 래퍼의 z-index를 10으로 고정하고, 대신 opacity와 pointer-events를 제어하여 깜빡임 문제를 해결합니다. */}
-        <div className={`relative z-10 flex flex-col h-full transition-opacity duration-500 ${isBackgroundFocused ? 'opacity-5 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`relative z-10 flex flex-col h-full transition-opacity duration-500 ${isBackgroundFocused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             <header className="md:hidden p-2 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]/80 backdrop-blur-sm flex-shrink-0">
                 <button onClick={onToggleSidebar} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                     <ICONS.LucideMenu size={24} />

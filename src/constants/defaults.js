@@ -27,7 +27,7 @@ export const GEMINI_MODELS = [
 // =================================================================
 
 export const DEFAULT_AI_SETTINGS = {
-  mainModel: 'gemini-2.5-pro',
+  mainModel: 'gemini-2.5-flash',
   auxModel: 'gemini-2.5-flash',
   narrativeStyle: 'Novel',
   systemInstruction: getSystemInstruction({ style: 'Novel', enableNsfw: true }),
@@ -40,7 +40,8 @@ export const DEFAULT_AI_SETTINGS = {
   retrievalTopK: 8,
   enableDynamicEvaluation: true,
   enableNsfw: true,
-  // [추가] API의 안전 필터를 비활성화하여 창작의 자유도를 높입니다.
+  // [추가] 이미지 연출 기능 활성화 토글 (비용 관리)
+  enableImageGeneration: false,
   safetySettings: [
     {
       category: "HARM_CATEGORY_HARASSMENT",
