@@ -3,8 +3,14 @@ import { DialogueBlock, ControlButton } from '../ui';
 import { ICONS } from '../../constants';
 import OocBlock from './OocBlock';
 import ChatMessageBlock from './ChatMessageBlock';
+import { useStoryContext } from '../../contexts/StoryProvider';
 
-const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage, user, allCharacters }) => {
+// [수정] React.memo를 제거하여, 컨텍스트 변경 시 컴포넌트가 확실하게 리렌더링되도록 합니다.
+// 이는 미묘한 상태 업데이트 문제를 해결하는 데 도움이 될 수 있습니다.
+const StoryBlock = ({ message, onReroll, onContinue, isLastAiMessage, user, allCharacters }) => {
+    // [신규] 이미지 클릭 시 모달을 띄우기 위한 핸들러를 컨텍스트에서 가져옵니다.
+    const { handlerProps } = useStoryContext();
+    const { setImagePreviewUrl } = handlerProps;
     
     // 유저 메시지 렌더링
     if (message.sender === 'player') {
@@ -53,15 +59,16 @@ const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage,
         
         return (
             <div className="my-8 group relative animate-fadeIn pb-12">
-                {/* [MODIFIED] v1.0 개선 계획에 따라, 이제 message.content의 각 아이템에 attachedImageUrl이 있을 수 있습니다. */}
                 {visibleContent.map((item, index) => {
                     const characterObject = item.type === 'dialogue' ? allCharacters.find(c => c.id === item.characterId || c.name === item.character) : null;
                     return (
                         <React.Fragment key={index}>
-                            {/* 이미지를 텍스트나 대화 블록 위에 렌더링합니다. */}
                             {item.attachedImageUrl && (
                                 <div className="mb-6 mt-4 animate-fadeIn">
-                                    <img src={item.attachedImageUrl} alt="Scene illustration" className="rounded-lg shadow-lg max-w-full h-auto mx-auto" style={{ maxHeight: '500px' }} />
+                                    {/* [수정] 이미지를 클릭 가능한 버튼으로 감싸고, 클릭 시 모달을 띄우도록 핸들러를 연결합니다. */}
+                                    <button onClick={() => setImagePreviewUrl(item.attachedImageUrl)} className="block w-full text-left transition-transform duration-200 hover:scale-[1.02]">
+                                        <img src={item.attachedImageUrl} alt="Scene illustration" className="rounded-lg shadow-lg max-w-full h-auto mx-auto cursor-pointer" style={{ maxHeight: '500px' }} />
+                                    </button>
                                 </div>
                             )}
 
@@ -86,7 +93,6 @@ const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage,
     }
 
     // AI 메시지 렌더링 (채팅 모드)
-    // Chat 모드는 메시지 객체 최상위에 attachedImageUrl이 하나만 존재합니다.
     if (message.sender === 'ai' && message.style === 'Chat' && typeof message.content === 'string') {
         return (
             <ChatMessageBlock
@@ -100,6 +106,6 @@ const StoryBlock = React.memo(({ message, onReroll, onContinue, isLastAiMessage,
     }
 
     return null;
-});
+};
 
 export default StoryBlock;

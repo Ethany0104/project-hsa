@@ -1,9 +1,13 @@
 import React, { useMemo } from 'react';
 import { ICONS } from '../../constants';
 import { ControlButton } from '../ui';
+import { useStoryContext } from '../../contexts/StoryProvider';
 
-// [수정] attachedImageUrl prop을 추가로 받습니다.
 const ChatMessageBlock = ({ text, isLastAiMessage, onReroll, onContinue, attachedImageUrl }) => {
+    // [신규] 이미지 클릭 시 모달을 띄우기 위한 핸들러를 컨텍스트에서 가져옵니다.
+    const { handlerProps } = useStoryContext();
+    const { setImagePreviewUrl } = handlerProps;
+
     const parsedChat = useMemo(() => {
         if (!text || typeof text !== 'string') return [];
         
@@ -29,10 +33,12 @@ const ChatMessageBlock = ({ text, isLastAiMessage, onReroll, onContinue, attache
 
     return (
         <div className="my-8 group relative animate-fadeIn pb-12">
-            {/* [추가] attachedImageUrl이 있으면 이미지를 렌더링합니다. */}
             {attachedImageUrl && (
                 <div className="mb-4 animate-fadeIn">
-                    <img src={attachedImageUrl} alt="Scene illustration" className="rounded-lg shadow-lg max-w-full h-auto mx-auto" style={{ maxHeight: '400px' }} />
+                    {/* [수정] 이미지를 클릭 가능한 버튼으로 감싸고, 클릭 시 모달을 띄우도록 핸들러를 연결합니다. */}
+                    <button onClick={() => setImagePreviewUrl(attachedImageUrl)} className="block w-full text-left transition-transform duration-200 hover:scale-[1.02]">
+                        <img src={attachedImageUrl} alt="Scene illustration" className="rounded-lg shadow-lg max-w-full h-auto mx-auto cursor-pointer" style={{ maxHeight: '400px' }} />
+                    </button>
                 </div>
             )}
 

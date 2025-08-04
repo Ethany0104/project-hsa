@@ -40,17 +40,10 @@ export const StoryProvider = ({ children }) => {
     const memoryManagementHandlers = useMemoryManagement(storyDataState, uiState, showToast, addApiLogEntry, _addEntryToIndex);
     const pdChatHandlers = usePdChat(storyDataState, uiState, showToast, addApiLogEntry);
 
-    /**
-     * [신규] 캐릭터 정보 업데이트를 위한 통합 핸들러.
-     * storyId의 존재 여부에 따라 로컬 상태만 업데이트할지, Firestore에 저장까지 할지 결정합니다.
-     * 이 함수가 UI 컴포넌트에 전달될 단일 진입점 역할을 합니다.
-     */
     const handleCharacterUpdate = useCallback((updatedCharacter) => {
         if (storyDataState.storyId) {
-            // 장면이 시작된 경우: Firestore에 저장
             persistenceHandlers.handleUpdateAndSaveCharacter(updatedCharacter);
         } else {
-            // 장면이 시작되기 전인 경우: 로컬 상태만 업데이트 (임시 저장)
             persistenceHandlers.handleUpdateCharacterLocally(updatedCharacter);
         }
     }, [storyDataState.storyId, persistenceHandlers]);
@@ -86,19 +79,19 @@ export const StoryProvider = ({ children }) => {
         }
     }, [storyDataState.storyId, storyDataState.setCharacters, uiState.setIsProcessing, showToast]);
 
+    // [수정] handleUploadAsset 함수에서 isProcessing 상태 관리를 제거합니다.
+    // 이제 이 함수는 단일 파일 업로드 로직에만 집중하고, 여러 파일의 처리 상태는 호출부(AssetTab)에서 관리합니다.
     const handleUploadAsset = useCallback(async (file, ownerId) => {
         if (!storyDataState.storyId) {
-            showToast("에셋을 업로드하려면 먼저 장면을 시작해야 합니다.", "error");
-            return;
+            throw new Error("에셋을 업로드하려면 먼저 장면을 시작해야 합니다.");
         }
         if (!ownerId) {
-            showToast("에셋 소유자를 선택해주세요.", "error");
-            return;
+            throw new Error("에셋 소유자를 선택해주세요.");
         }
-        uiState.setIsProcessing(true);
+        
         try {
             const fileExtension = file.name.split('.').pop();
-            const assetId = Date.now();
+            const assetId = Date.now() + Math.random(); // 동시 업로드 시 ID 충돌 방지를 위해 random 추가
             const uploadPath = `assets/${storyDataState.storyId}/${assetId}.${fileExtension}`;
             
             const downloadURL = await storyService.uploadImage(file, uploadPath);
@@ -110,19 +103,15 @@ export const StoryProvider = ({ children }) => {
                 ownerId: ownerId,
             };
 
-            const updatedAssets = [...(storyDataState.assets || []), newAsset];
-            storyDataState.setAssets(updatedAssets);
-
-            await storyService.saveStory(storyDataState.storyId, { assets: updatedAssets });
-            showToast(`'${file.name}' 에셋이 추가되었습니다.`, "success");
+            // 상태를 직접 업데이트하는 대신, 생성된 새 에셋 정보를 반환합니다.
+            return newAsset;
 
         } catch (error) {
             console.error("에셋 업로드 실패:", error);
-            showToast(`에셋 업로드 실패: ${error.message}`, "error");
-        } finally {
-            uiState.setIsProcessing(false);
+            // 에러 발생 시 호출부에서 처리할 수 있도록 에러를 다시 던집니다.
+            throw new Error(`'${file.name}' 업로드 실패: ${error.message}`);
         }
-    }, [storyDataState.storyId, storyDataState.assets, storyDataState.setAssets, uiState.setIsProcessing, showToast]);
+    }, [storyDataState.storyId]);
 
     const handleDeleteAsset = useCallback(async (assetToDelete) => {
         if (!storyDataState.storyId || !assetToDelete) return;
@@ -214,7 +203,6 @@ export const StoryProvider = ({ children }) => {
             ...profileGenerationHandlers,
             ...memoryManagementHandlers,
             ...pdChatHandlers,
-            // [수정] 새로 만든 통합 핸들러를 전달합니다.
             handleCharacterUpdate,
             handleProposeReEvaluation,
             handleConfirmReEvaluation,

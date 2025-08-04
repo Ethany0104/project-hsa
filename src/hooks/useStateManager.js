@@ -24,7 +24,6 @@ export const useStateManager = () => {
   const [characterTemplates, setCharacterTemplates] = useState([]);
   const [pinnedItems, setPinnedItems] = useState([]);
   const [assets, setAssets] = useState([]);
-  // [수정] AI의 선택과 분석된 텍스트를 함께 저장하기 위해 객체 형태로 변경
   const [lastAiImageAssetChoice, setLastAiImageAssetChoice] = useState({ choice: null, analyzedText: null });
 
 
@@ -32,6 +31,8 @@ export const useStateManager = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '' });
+  // [신규] 이미지 미리보기 모달에 표시할 이미지의 URL을 관리하는 상태를 추가합니다.
+  const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [reEvaluation, setReEvaluation] = useState({ isOpen: false, isLoading: false, character: null, proposal: null });
   const [pdChatHistory, setPdChatHistory] = useState([]);
   const [isPdChatProcessing, setIsPdChatProcessing] = useState(false);
@@ -60,7 +61,6 @@ export const useStateManager = () => {
     characterTemplates, setCharacterTemplates,
     pinnedItems, setPinnedItems,
     assets, setAssets,
-    // [수정] storyDataState에 새로운 상태와 세터를 포함
     lastAiImageAssetChoice, setLastAiImageAssetChoice,
   };
 
@@ -68,6 +68,8 @@ export const useStateManager = () => {
     isLoading, setIsLoading,
     isProcessing, setIsProcessing,
     toast, setToast,
+    // [신규] uiState에 새로운 상태와 세터를 포함시킵니다.
+    imagePreviewUrl, setImagePreviewUrl,
     reEvaluation, setReEvaluation,
     pdChatHistory, setPdChatHistory,
     isPdChatProcessing, setIsPdChatProcessing,

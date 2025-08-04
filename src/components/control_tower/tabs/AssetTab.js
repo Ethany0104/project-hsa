@@ -4,24 +4,65 @@ import { useStoryContext } from '../../../contexts/StoryProvider';
 import { ICONS } from '../../../constants';
 import { Card, CardHeader } from '../../ui/layouts';
 import { Spinner, ConfirmationModal } from '../../ui';
+import { storyService } from '../../../services';
 
 const AssetTab = () => {
     const { storyProps, handlerProps } = useStoryContext();
     const { storyId, assets = [], characters, isProcessing, lastAiImageAssetChoice } = storyProps;
-    const { handleUploadAsset, handleDeleteAsset, showToast } = handlerProps;
+    // [수정] setIsProcessing, setAssets를 handlerProps에서 직접 가져옵니다.
+    const { handleUploadAsset, handleDeleteAsset, showToast, setIsProcessing, setAssets } = handlerProps;
     const [assetToDelete, setAssetToDelete] = useState(null);
     const [selectedOwner, setSelectedOwner] = useState('shared');
     const [isDebugVisible, setIsDebugVisible] = useState(false);
 
-    const onDrop = useCallback((acceptedFiles) => {
+    // [수정] onDrop 콜백을 여러 파일 업로드를 지원하도록 개선합니다.
+    const onDrop = useCallback(async (acceptedFiles) => {
         if (!storyId) {
             showToast("에셋을 업로드하려면 먼저 장면을 시작해야 합니다.", "error");
             return;
         }
-        acceptedFiles.forEach(file => {
-            handleUploadAsset(file, selectedOwner);
-        });
-    }, [storyId, handleUploadAsset, showToast, selectedOwner]);
+        if (acceptedFiles.length === 0) {
+            return;
+        }
+
+        setIsProcessing(true);
+        showToast(`${acceptedFiles.length}개의 에셋을 업로드하는 중...`);
+
+        // 각 파일에 대한 업로드 프로미스를 생성합니다.
+        const uploadPromises = acceptedFiles.map(file => 
+            handleUploadAsset(file, selectedOwner).catch(err => ({ error: err, file }))
+        );
+
+        try {
+            // 모든 업로드가 완료될 때까지 기다립니다.
+            const results = await Promise.all(uploadPromises);
+            
+            const successfulUploads = results.filter(res => !res.error);
+            const failedUploads = results.filter(res => res.error);
+
+            if (successfulUploads.length > 0) {
+                // 성공한 모든 에셋을 현재 상태에 추가합니다.
+                const newAssets = successfulUploads;
+                const updatedAssets = [...assets, ...newAssets];
+                setAssets(updatedAssets);
+                
+                // Firestore에 한 번만 저장하여 쓰기 작업을 최소화합니다.
+                await storyService.saveStory(storyId, { assets: updatedAssets });
+                showToast(`${successfulUploads.length}개의 에셋이 성공적으로 추가되었습니다.`, "success");
+            }
+
+            if (failedUploads.length > 0) {
+                // 실패한 업로드가 있으면 사용자에게 알립니다.
+                failedUploads.forEach(fail => showToast(fail.error.message, "error"));
+            }
+
+        } catch (error) {
+            console.error("여러 에셋 업로드 중 에러 발생:", error);
+            showToast("에셋을 업로드하는 중 심각한 오류가 발생했습니다.", "error");
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [storyId, handleUploadAsset, showToast, selectedOwner, setIsProcessing, assets, setAssets]);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
@@ -114,7 +155,6 @@ const AssetTab = () => {
                             <ICONS.LucideBug className="w-4 h-4 mr-1" />
                         </button>
                     </CardHeader>
-                    {/* [수정] 디버그 뷰에 AI의 선택 결과와 분석된 텍스트를 모두 표시합니다. */}
                     {isDebugVisible && (
                         <div className="mb-4 p-2 bg-[var(--input-bg)] rounded-md border border-[var(--border-primary)] animate-fadeIn">
                             <h4 className="text-xs font-bold text-[var(--text-secondary)] mb-1">AI에게 전달되는 에셋 컨텍스트:</h4>
