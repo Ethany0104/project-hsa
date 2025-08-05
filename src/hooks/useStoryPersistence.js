@@ -27,6 +27,8 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
             if (Array.isArray(char.dailySchedule)) {
                 char.dailySchedule = JSON.stringify(char.dailySchedule);
             }
+            // [신규] 템플릿 저장 시, 첨부된 에셋 정보는 실제 DB 필드가 아니므로 제외합니다.
+            delete char.attachedAssets;
             return char;
         });
     };
@@ -193,10 +195,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         fetchStoryList, setIsProcessing, showToast
     ]);
 
-    /**
-     * [신규] 로컬 상태의 캐릭터 정보만 업데이트하는 함수.
-     * 장면이 시작되기 전, 임시로 캐릭터 정보를 수정하고 UI에 반영하기 위해 사용됩니다.
-     */
     const handleUpdateCharacterLocally = useCallback((updatedCharacter) => {
         const updatedCharacters = characters.map(c => c.id === updatedCharacter.id ? updatedCharacter : c);
         setCharacters(updatedCharacters);
@@ -204,10 +202,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
     }, [characters, setCharacters, showToast]);
 
 
-    /**
-     * [기존] 캐릭터 정보를 업데이트하고 Firestore에 저장하는 함수.
-     * 장면이 시작된 후에만 호출되어야 합니다.
-     */
     const handleUpdateAndSaveCharacter = useCallback(async (updatedCharacter) => {
         if (!storyId) {
             showToast("캐릭터를 저장하려면 먼저 장면을 시작해야 합니다.", "error");
@@ -288,6 +282,16 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         try {
             const templateToSave = prepareCharactersForSave([characterData])[0];
             templateToSave.id = Date.now().toString();
+
+            // [신규] 캐릭터가 소유한 에셋 정보를 찾아서 템플릿에 추가합니다.
+            const characterAssets = assets.filter(asset => asset.ownerId === characterData.id);
+            if (characterAssets.length > 0) {
+                templateToSave.attachedAssets = characterAssets.map(asset => ({
+                    fileName: asset.fileName,
+                    storageUrl: asset.storageUrl // 원본 URL 저장
+                }));
+            }
+
             await storyService.saveCharacterTemplate(templateToSave);
             await fetchCharacterTemplates();
             showToast(`'${characterData.name}' 페르소나가 프리셋으로 저장되었습니다.`);
@@ -296,23 +300,72 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         } finally {
             setIsProcessing(false);
         }
-    }, [fetchCharacterTemplates, setIsProcessing, showToast]);
+    }, [assets, fetchCharacterTemplates, setIsProcessing, showToast]);
 
-    const handleLoadCharacterTemplate = useCallback((template) => {
+    const handleLoadCharacterTemplate = useCallback(async (template) => {
+        // 템플릿 불러오기 로직 시작
+        const hasAssetsToCopy = template.attachedAssets && template.attachedAssets.length > 0;
+
+        if (hasAssetsToCopy && !storyId) {
+            showToast("에셋이 포함된 템플릿을 불러오려면 먼저 장면을 시작해야 합니다.", "error");
+            return;
+        }
+
         const loadedTemplate = parseCharactersAfterLoad([template])[0];
+        
         if (loadedTemplate.isUser) {
+            // 유저 템플릿 불러오기 (기존 로직 유지)
             setCharacters(prev => prev.map(c => c.isUser ? { ...loadedTemplate, id: c.id, isUser: true } : c));
             showToast(`유저 '${loadedTemplate.name}' 프리셋을 불러왔습니다.`);
         } else {
-            const newCharacter = { ...loadedTemplate, id: Date.now(), isUser: false };
-            if (characters.some(c => c.name === newCharacter.name)) {
-                showToast(`'${newCharacter.name}' 이름의 페르소나가 이미 존재합니다.`);
+            // 페르소나 템플릿 불러오기
+            if (characters.some(c => c.name === loadedTemplate.name)) {
+                showToast(`'${loadedTemplate.name}' 이름의 페르소나가 이미 존재합니다.`);
                 return;
             }
+
+            const newCharacter = { ...loadedTemplate, id: Date.now(), isUser: false };
+            delete newCharacter.attachedAssets; // 실제 캐릭터 객체에는 이 정보가 필요 없음
+
             setCharacters(prev => [...prev, newCharacter]);
             showToast(`페르소나 '${newCharacter.name}'를 불러왔습니다.`);
+
+            // 에셋 복사 로직 (있는 경우에만 실행)
+            if (hasAssetsToCopy) {
+                setIsProcessing(true);
+                showToast(`'${newCharacter.name}'의 전용 에셋 ${template.attachedAssets.length}개를 복사하는 중...`);
+                try {
+                    const newAssets = [];
+                    for (const assetToCopy of template.attachedAssets) {
+                        const newFileName = `${newCharacter.id}_${assetToCopy.fileName}`;
+                        const newPath = `assets/${storyId}/${newFileName}`;
+                        
+                        const newUrl = await storyService.copyImageInStorage(assetToCopy.storageUrl, newPath);
+                        
+                        newAssets.push({
+                            id: Date.now() + Math.random(),
+                            fileName: assetToCopy.fileName, // 유저에게 보여줄 이름은 원본 유지
+                            storageUrl: newUrl,
+                            ownerId: newCharacter.id, // 새 캐릭터를 주인으로 설정
+                        });
+                    }
+
+                    // 복사된 에셋들을 현재 장면의 상태에 추가하고 DB에 저장
+                    const updatedAssets = [...assets, ...newAssets];
+                    setAssets(updatedAssets);
+                    await storyService.saveStory(storyId, { assets: updatedAssets });
+
+                    showToast(`에셋 복사가 완료되었습니다!`, "success");
+                } catch (error) {
+                    console.error("템플릿 에셋 복사 중 오류:", error);
+                    showToast(`에셋을 복사하는 중 오류가 발생했습니다: ${error.message}`, "error");
+                } finally {
+                    setIsProcessing(false);
+                }
+            }
         }
-    }, [characters, setCharacters, showToast]);
+        // onClose(); // 모달 닫기 -> [버그 수정] 이 줄을 삭제합니다.
+    }, [storyId, characters, assets, setCharacters, setAssets, setIsProcessing, showToast]);
 
     const handleDeleteCharacterTemplate = useCallback(async (id) => {
         setIsProcessing(true);
@@ -340,7 +393,7 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
             await handleLoadStory(newId);
             return newId;
         } catch (error) {
-            showToast(`새 장면 생성 실패: ${error.message}`, 'error');
+            showToast(`새 장면 생성 실패: ${error.message}`, "error");
             setIsProcessing(false);
             return null;
         }
@@ -361,7 +414,6 @@ export const useStoryPersistence = (storyDataState, uiState, showToast) => {
         fetchCharacterTemplates,
         handleNewScene,
         handleUpdateAndSaveCharacter,
-        // [신규] 로컬 업데이트 함수를 export합니다.
         handleUpdateCharacterLocally,
     };
 };

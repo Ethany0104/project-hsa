@@ -6,7 +6,6 @@ import {
     orderBy, limit 
 } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
-// [수정] Firebase Storage 관련 모듈을 모두 가져옵니다.
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { firebaseConfig } from "../config/firebaseConfig" 
 
@@ -46,18 +45,45 @@ export const storyService = {
     return downloadURL;
   },
 
-  // [추가] Storage URL을 이용해 이미지를 삭제하는 함수
   deleteImage: async (imageUrl) => {
     if (!imageUrl) return;
     try {
       const storageRef = ref(storage, imageUrl);
       await deleteObject(storageRef);
     } catch (error) {
-      // 파일이 존재하지 않는 등의 오류는 무시할 수 있습니다.
       if (error.code !== 'storage/object-not-found') {
         console.error("Storage 이미지 삭제 오류:", error);
         throw error;
       }
+    }
+  },
+
+  /**
+   * [신규 기능] 스토리지의 한 위치에 있는 이미지를 다른 위치로 복사합니다.
+   * 템플릿 에셋을 새 장면에 추가할 때 사용됩니다.
+   * @param {string} sourceUrl - 복사할 원본 이미지의 다운로드 URL.
+   * @param {string} destinationPath - 이미지를 복사할 새로운 스토리지 경로.
+   * @returns {Promise<string>} - 복사된 새 이미지의 다운로드 URL.
+   */
+  copyImageInStorage: async (sourceUrl, destinationPath) => {
+    try {
+      // 1. 원본 URL을 사용해 이미지 데이터를 Blob 형태로 가져옵니다.
+      const response = await fetch(sourceUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch source image: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+
+      // 2. 새로운 경로에 Blob 데이터를 업로드합니다.
+      const destinationRef = ref(storage, destinationPath);
+      const snapshot = await uploadBytes(destinationRef, blob);
+
+      // 3. 새로 업로드된 파일의 다운로드 URL을 반환합니다.
+      const newDownloadURL = await getDownloadURL(snapshot.ref);
+      return newDownloadURL;
+    } catch (error) {
+      console.error("스토리지 이미지 복사 중 오류 발생:", error);
+      throw error; // 오류를 상위로 전파하여 호출부에서 처리하도록 합니다.
     }
   },
 

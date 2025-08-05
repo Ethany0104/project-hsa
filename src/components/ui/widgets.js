@@ -198,7 +198,7 @@ export const ApiLogViewer = ({ apiLog }) => {
     };
 
     return (
-        <Accordion title="API 작업 로그" icon={ICONS.LucideHistory} defaultOpen={true}>
+        <Accordion title="API 작업 로그" icon={ICONS.LucideHistory} defaultOpen={false}>
             <div className="p-2 space-y-2 font-sans max-h-96 overflow-y-auto">
                 {apiLog.log.length === 0 ? (
                     <p className="text-xs text-center text-[var(--text-secondary)] py-4">AI 작업 기록이 없습니다.</p>

@@ -39,7 +39,7 @@ export const UserSheet = ({ localCharacter, handleLocalChange, handleImageUpload
                     </div>
                     <EditableField label="이름" value={localCharacter.name || ''} onChange={e => handleLocalChange('name', e.target.value)} placeholder="유저의 이름을 입력합니다."/>
                     <EditableField isTextarea rows={5} label="외형" value={localCharacter.appearance || ''} onChange={e => handleLocalChange('appearance', e.target.value)} placeholder="페르소나의 외모, 체형, 자주 입는 옷차림 등을 구체적으로 묘사합니다."/>
-                    <EditableField isTextarea rows={5} label="유저 컨셉" value={localCharacter.Concept || ''} onChange={e => handleLocalChange('Concept', e.target.value)} placeholder="AI가 참고할 유저의 핵심 컨셉이나 키워드를 서술합니다."/>
+                    <EditableField isTextarea rows={5} label="유저 컨셉" value={localCharacter.generationConcept || ''} onChange={e => handleLocalChange('generationConcept', e.target.value)} placeholder="AI가 참고할 유저의 핵심 컨셉이나 키워드를 서술합니다."/>
                 </div>
             </Card>
         </div>

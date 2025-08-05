@@ -27,7 +27,7 @@ export const GEMINI_MODELS = [
 // =================================================================
 
 export const DEFAULT_AI_SETTINGS = {
-  mainModel: 'gemini-2.5-flash',
+  mainModel: 'gemini-2.5-pro',
   auxModel: 'gemini-2.5-flash',
   narrativeStyle: 'Novel',
   systemInstruction: getSystemInstruction({ style: 'Novel', enableNsfw: true }),
@@ -87,7 +87,7 @@ export const DEFAULT_USER = {
     name: '',
     isUser: true,
     appearance: '',
-    Concept: '',
+    generationConcept: '',
     profileImageUrl: '',
 };
 

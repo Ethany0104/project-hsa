@@ -70,8 +70,7 @@ export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, on
                             <ul className="space-y-2 p-2">
                                 {filteredTemplates.map(template => {
                                     // [BUG FIX] isUser 값에 따라 다른 컨셉 필드를 사용하도록 수정합니다.
-                                    const conceptText = template.isUser ? template.Concept : template.generationConcept;
-                                    return (
+                                        const conceptText = template.generationConcept;                                    return (
                                         <li key={template.id} className="p-3 bg-[var(--panel-bg)] hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 font-sans group">
                                             <div className="flex items-center justify-between gap-4">
                                                 <div className="flex items-center min-w-0">

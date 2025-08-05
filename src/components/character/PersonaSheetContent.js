@@ -30,7 +30,7 @@ const formatCharacterToText = (character, allCharacters) => {
         '나이': character.age,
         '직업': character.job,
         '외형': character.appearance,
-        '생성 컨셉': character.Concept,
+        '생성 컨셉': character.generationConcept,
     });
 
     output += formatSection('서사적 프로필', {

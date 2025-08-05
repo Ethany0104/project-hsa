@@ -4,7 +4,7 @@ import ControlTower from './components/control_tower/ControlTower';
 import MainView from './components/MainView';
 import { UserSheetContent } from './components/character/UserSheetContent';
 import { PersonaSheetContent } from './components/character/PersonaSheetContent';
-import { SideSheet, Toast, PersonaStatusFloater } from './components/ui';
+import { SideSheet, Toast, PersonaStatusFloater, ImagePreviewModal } from './components/ui';
 import { PdChatModal } from './components/pd_chat/PdChatModal';
 import './styles/theme.css';
 
@@ -16,6 +16,7 @@ function App() {
     toast,
     floatingStatusWindows,
     latestEmotionAnalysis,
+    imagePreviewUrl,
   } = storyProps;
 
   const {
@@ -24,6 +25,7 @@ function App() {
     handleCharacterUpdate,
     setToast,
     handleToggleFloater,
+    setImagePreviewUrl,
   } = handlerProps;
 
   const [activeTab, setActiveTab] = useState('character');
@@ -117,6 +119,10 @@ function App() {
               />
           );
       })}
+      <ImagePreviewModal 
+        imageUrl={imagePreviewUrl} 
+        onClose={() => setImagePreviewUrl(null)} 
+      />
     </>
   );
 }

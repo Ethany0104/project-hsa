@@ -58,7 +58,7 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
                                     <h3 className="font-bold text-lg text-[var(--text-primary)] truncate">{user.name || "이름 없음"}</h3>
                                     <ICONS.LucideEdit className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0 ml-2" />
                                 </div>
-                                <p className="text-sm text-[var(--text-secondary)] mt-1 truncate">{user.Concept || "노트 미설정"}</p>
+                                <p className="text-sm text-[var(--text-secondary)] mt-1 truncate">{user.generationConcept  || "컨셉 미설정"}</p>
                             </div>
                         </div>
                     </Card>
@@ -99,7 +99,7 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
                                     <div className="flex-grow min-w-0">
                                         <h3 className="font-bold text-[var(--text-primary)] truncate">{char.name}</h3>
                                         {/* [BUG FIX] 'generationConcept'을 올바르게 참조하도록 수정합니다. */}
-                                        <p className="text-xs text-[var(--text-secondary)] break-words truncate">{char.generationConcept || '노트 미설정'}</p>
+                                        <p className="text-xs text-[var(--text-secondary)] break-words truncate">{char.generationConcept || '컨셉 미설정'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 pl-2">

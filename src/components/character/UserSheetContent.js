@@ -9,7 +9,7 @@ const formatUserToText = (character) => {
     output += `--- 기본 정보 ---\n`;
     output += `이름: ${character.name || ''}\n`;
     output += `외형: ${character.appearance || ''}\n`;
-    output += `유저 컨셉: ${character.Concept || ''}\n`;
+    output += `유저 컨셉: ${character.generationConcept  || ''}\n`;
     return output;
 };
 
