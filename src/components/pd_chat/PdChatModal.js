@@ -84,7 +84,12 @@ export const PdChatModal = ({ isOpen, onClose }) => {
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[120] animate-fadeIn backdrop-blur-sm p-4">
+            {/* [Z-INDEX] PD 채팅 모달: 120 (기본 모달 레벨) */}
+            <div 
+                // [수정] z-index를 CSS 변수로 관리
+                className="fixed inset-0 bg-black/70 flex justify-center items-center animate-fadeIn backdrop-blur-sm p-4"
+                style={{ zIndex: 'var(--z-pd-chat-modal)' }}
+            >
                 <div className="panel-ui rounded-2xl shadow-2xl w-full max-w-6xl h-full max-h-[90vh] flex flex-col border border-[var(--border-primary)] overflow-hidden">
                     <header className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
                         <HeaderContent

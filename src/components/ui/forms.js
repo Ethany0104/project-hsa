@@ -6,9 +6,9 @@ import { ICONS } from '../../constants/icons';
 /**
  * 대화나 대사를 표시하는 말풍선 컴포넌트.
  * isPlayer prop에 따라 유저(오른쪽 정렬)와 AI(왼쪽 정렬) 스타일을 구분합니다.
- * @param {object} props - { character, line, thought, isPlayer }
+ * @param {object} props - { character, line, thought, isPlayer, className }
  */
-export const DialogueBlock = ({ character, line, thought, isPlayer = false }) => {
+export const DialogueBlock = ({ character, line, thought, isPlayer = false, className = "" }) => {
     const [isThoughtVisible, setIsThoughtVisible] = useState(false);
 
     const characterName = character?.name || '???';
@@ -17,14 +17,10 @@ export const DialogueBlock = ({ character, line, thought, isPlayer = false }) =>
     const bubbleClasses = isPlayer ? 'bg-[var(--accent-secondary)]/10' : 'bg-[var(--bg-tertiary)]';
     const characterColor = isPlayer ? 'text-[var(--accent-secondary)]' : 'text-[var(--accent-primary)]';
     
-    // [PD NOTE] UI 버그 수정을 위해 컴포넌트 구조를 변경합니다.
-    // 기존에는 생각 버블이 absolute로 독립되어 있어 부모 요소의 레이아웃에 영향을 주지 못했습니다.
-    // 이제는 전체를 flex-col로 감싸고, 생각 버블이 일반적인 흐름(flow)에 포함되도록 하여
-    // 생각 버블이 나타났을 때 자연스럽게 아래 컨텐츠를 밀어내도록 수정합니다.
     return (
-        <div className={`my-5 group/dialogue flex flex-col ${isPlayer ? 'items-end' : 'items-start'} max-w-2xl w-full`}>
+        <div className={`group/dialogue flex flex-col ${isPlayer ? 'items-end' : 'items-start'} w-full ${className}`}>
             {/* Part 1: Avatar and Bubble Row */}
-            <div className={`flex w-full ${isPlayer ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
+            <div className={`flex w-full max-w-2xl ${isPlayer ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
                 <div className="w-10 h-10 rounded-full bg-[var(--bg-tertiary)] flex-shrink-0 flex items-center justify-center font-bold text-lg overflow-hidden">
                     {characterImageUrl ? (
                         <img src={characterImageUrl} alt={characterName} className="w-full h-full object-cover" />
@@ -52,7 +48,6 @@ export const DialogueBlock = ({ character, line, thought, isPlayer = false }) =>
             </div>
              {/* Part 2: Thought Bubble (이제 문서 흐름에 포함됩니다) */}
              {isThoughtVisible && thought && !isPlayer && (
-                // ml-14 (w-10 아바타 + gap-3) 만큼 왼쪽 여백을 주어 아바타 아래에 정렬되도록 합니다.
                 <div className="mt-2 p-3 bg-black/20 rounded-lg animate-fadeIn border border-white/10 max-w-xl ml-14 w-[calc(100%-3.5rem)]">
                     <p className="text-sm text-[var(--text-secondary)] italic font-serif leading-relaxed">{thought}</p>
                 </div>

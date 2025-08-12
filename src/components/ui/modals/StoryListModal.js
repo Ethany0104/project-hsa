@@ -1,14 +1,15 @@
 import React from 'react';
 import { ICONS } from '../../../constants';
 
-/**
- * Modal to display the list of saved stories.
- */
 export const StoryListModal = ({ isOpen, stories, onLoad, onDelete, onClose }) => {
     if (!isOpen) return null;
 
     return ( 
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[140] animate-fadeIn backdrop-blur-sm p-4"> 
+        <div 
+            // [수정] z-index를 CSS 변수로 관리
+            className="fixed inset-0 bg-black/70 flex justify-center items-center animate-fadeIn backdrop-blur-sm p-4"
+            style={{ zIndex: 'var(--z-story-list-modal)' }}
+        > 
             <div className="panel-ui rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col border border-[var(--border-primary)]"> 
                 <header className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
                     <h2 className="text-lg font-bold text-[var(--accent-primary)] font-sans flex items-center">

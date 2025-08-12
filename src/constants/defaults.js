@@ -38,10 +38,13 @@ export const DEFAULT_AI_SETTINGS = {
   maxContextTokens: 48368,
   shortTermMemoryTurns: 35,
   retrievalTopK: 8,
-  enableDynamicEvaluation: true,
-  enableNsfw: true,
-  // [추가] 이미지 연출 기능 활성화 토글 (비용 관리)
+  enableDynamicEvaluation: false,
+  enableNsfw: false,
   enableImageGeneration: false,
+  enableInteractiveComponents: false,
+  enableLogicExecution: false,
+  // --- [추가] 내장 프리셋 포지 기능 활성화 설정 ---
+  enableBuiltInTools: false,
   safetySettings: [
     {
       category: "HARM_CATEGORY_HARASSMENT",

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useStoryContext } from '../../contexts/StoryProvider';
 import { updateNestedState } from '../../utils/stateUtils';
 import { SheetHeader } from './SheetHeader';
 import { UserSheet } from './UserSheet';
+import { useSyncedLocalState } from '../../hooks/useSyncedLocalState'; // [수정] 커스텀 훅 임포트
 
 const formatUserToText = (character) => {
     let output = `≡≡≡ 유저 프로필: ${character.name} ≡≡≡\n\n`;
@@ -14,7 +15,8 @@ const formatUserToText = (character) => {
 };
 
 export const UserSheetContent = ({ character, onUpdate, onClose }) => {
-    const [localCharacter, setLocalCharacter] = useState(character);
+    // [수정] useState와 useEffect를 커스텀 훅으로 교체
+    const [localCharacter, setLocalCharacter] = useSyncedLocalState(character);
 
     const { storyProps, handlerProps } = useStoryContext();
     const { isProcessing } = storyProps;
@@ -25,11 +27,6 @@ export const UserSheetContent = ({ character, onUpdate, onClose }) => {
     } = handlerProps;
 
     const hasChanges = useMemo(() => JSON.stringify(localCharacter) !== JSON.stringify(character), [localCharacter, character]);
-
-    // [수정] character prop이 변경될 때마다 항상 localCharacter 상태를 동기화합니다.
-    useEffect(() => {
-        setLocalCharacter(character);
-    }, [character]);
 
     const handleLocalChange = (path, value) => {
         setLocalCharacter(updateNestedState(path, value));

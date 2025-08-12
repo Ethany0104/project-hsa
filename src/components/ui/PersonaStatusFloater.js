@@ -57,7 +57,7 @@ export const PersonaStatusFloater = ({ character, latestEmotionAnalysis, onClose
     return (
         <div
             ref={floaterRef}
-            className="fixed w-96 bg-[var(--panel-bg)] rounded-xl shadow-2xl border border-[var(--border-primary)] z-[100] flex flex-col animate-fadeIn"
+            className="fixed w-96 bg-[var(--panel-bg)] rounded-xl shadow-2xl border border-[var(--border-primary)] flex flex-col animate-fadeIn"
             style={{ top: position.y, left: position.x, transform: isDragging ? 'scale(1.02)' : 'scale(1)', transition: 'transform 0.1s ease-in-out' }}
         >
             <header

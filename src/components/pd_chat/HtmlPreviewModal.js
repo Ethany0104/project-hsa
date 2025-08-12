@@ -30,7 +30,13 @@ const HtmlPreviewModal = memo(({ isOpen, onClose, htmlContent }) => {
     `;
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[130] animate-fadeIn p-2 sm:p-4 md:p-8" onClick={onClose}>
+        // [Z-INDEX] HTML 미리보기: 130 (PD 채팅 모달 위)
+        <div 
+            // [수정] z-index를 CSS 변수로 관리
+            className="fixed inset-0 bg-black/80 flex justify-center items-center animate-fadeIn p-2 sm:p-4 md:p-8" 
+            onClick={onClose}
+            style={{ zIndex: 'var(--z-html-preview-modal)' }}
+        >
             <div className="bg-[var(--panel-bg)] rounded-xl shadow-2xl w-full h-full flex flex-col border border-[var(--border-primary)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <header className="p-3 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
                     <h2 className="text-md font-bold text-[var(--accent-primary)] font-sans flex items-center">

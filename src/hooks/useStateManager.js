@@ -1,3 +1,4 @@
+// src/hooks/useStateManager.js
 import { useState } from 'react';
 import { 
     DEFAULT_USER, 
@@ -25,13 +26,14 @@ export const useStateManager = () => {
   const [pinnedItems, setPinnedItems] = useState([]);
   const [assets, setAssets] = useState([]);
   const [lastAiImageAssetChoice, setLastAiImageAssetChoice] = useState({ choice: null, analyzedText: null });
+  // --- [추가] 커스텀 툴 상태 ---
+  const [customTools, setCustomTools] = useState([]);
 
 
   // --- UI States (사용자 인터페이스 상태) ---
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '' });
-  // [신규] 이미지 미리보기 모달에 표시할 이미지의 URL을 관리하는 상태를 추가합니다.
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [reEvaluation, setReEvaluation] = useState({ isOpen: false, isLoading: false, character: null, proposal: null });
   const [pdChatHistory, setPdChatHistory] = useState([]);
@@ -62,13 +64,14 @@ export const useStateManager = () => {
     pinnedItems, setPinnedItems,
     assets, setAssets,
     lastAiImageAssetChoice, setLastAiImageAssetChoice,
+    // --- [추가] 커스텀 툴 상태 ---
+    customTools, setCustomTools,
   };
 
   const uiState = {
     isLoading, setIsLoading,
     isProcessing, setIsProcessing,
     toast, setToast,
-    // [신규] uiState에 새로운 상태와 세터를 포함시킵니다.
     imagePreviewUrl, setImagePreviewUrl,
     reEvaluation, setReEvaluation,
     pdChatHistory, setPdChatHistory,

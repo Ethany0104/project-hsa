@@ -9,7 +9,11 @@ export const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, children 
     if (!isOpen) return null; 
     
     return ( 
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[150] animate-fadeIn backdrop-blur-sm p-4"> 
+        <div 
+            // [수정] z-index를 CSS 변수로 관리
+            className="fixed inset-0 bg-black/70 flex justify-center items-center animate-fadeIn backdrop-blur-sm p-4"
+            style={{ zIndex: 'var(--z-confirmation-modal)' }}
+        > 
             <div className="panel-ui rounded-xl shadow-2xl w-full max-w-sm border border-[var(--border-primary)]">
                 <div className="p-6 font-sans">
                     <h2 className="text-lg font-bold text-[var(--danger)] mb-4 flex items-center">

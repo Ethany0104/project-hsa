@@ -1,13 +1,13 @@
 // src/constants/icons.js
 
-import { 
-    LucideSend, LucideSettings, LucideBookCopy, LucideUsers, LucideFeather, 
-    LucideRefreshCw, LucidePlusCircle, LucidePlus, LucideTrash2, LucideStar, 
-    LucideSave, LucideLibrary, LucideSparkles, LucideZap, LucidePlayCircle, 
+import {
+    LucideSend, LucideSettings, LucideBookCopy, LucideUsers, LucideFeather,
+    LucideRefreshCw, LucidePlusCircle, LucidePlus, LucideTrash2, LucideStar,
+    LucideSave, LucideLibrary, LucideSparkles, LucideZap, LucidePlayCircle,
     LucideEdit, LucideX, LucideBrainCircuit, LucideMenu, LucideSun, LucideMoon,
     LucideClock, LucideCloud, LucideCloudRain, LucideCloudSnow, LucideCloudFog,
     LucideFileText, LucideMemoryStick, LucideBookOpen, LucideMessageSquare,
-    LucideBookUser, LucideGlobe, LucideChevronDown, LucideChevronRight, 
+    LucideBookUser, LucideGlobe, LucideChevronDown, LucideChevronRight,
     LucideBrainCog, LucideHeartHandshake, LucideDrama, LucideEyeOff, LucideMessageCircle,
     LucideUserCog, LucideBot, LucideFileArchive, LucideCpu, LucideShare2, LucideImage,
     LucideCalendarDays,
@@ -41,18 +41,25 @@ import {
     LucideFileDown,
     LucideGalleryHorizontal,
     LucideImages,
-    // [FIXED] v1.1 에러 해결: AssetTab에서 사용하는 LucideBug 아이콘을 추가합니다.
     LucideBug,
+    LucideHammer,
+    LucideFileCode,
+    LucideEye,
+    LucideCog,
+    LucideExpand,
+    // [FIX] Add the missing LucideFolderPlus icon
+    LucideFolder,
+    LucideFolderPlus,
 } from 'lucide-react';
 
 export const ICONS = {
-    LucideSend, LucideSettings, LucideBookCopy, LucideUsers, LucideFeather, 
-    LucideRefreshCw, LucidePlusCircle, LucidePlus, LucideTrash2, LucideStar, 
-    LucideSave, LucideLibrary, LucideSparkles, LucideZap, LucidePlayCircle, 
+    LucideSend, LucideSettings, LucideBookCopy, LucideUsers, LucideFeather,
+    LucideRefreshCw, LucidePlusCircle, LucidePlus, LucideTrash2, LucideStar,
+    LucideSave, LucideLibrary, LucideSparkles, LucideZap, LucidePlayCircle,
     LucideEdit, LucideX, LucideBrainCircuit, LucideMenu, LucideSun, LucideMoon,
     LucideClock, LucideCloud, LucideCloudRain, LucideCloudSnow, LucideCloudFog,
     LucideFileText, LucideMemoryStick, LucideBookOpen, LucideMessageSquare,
-    LucideBookUser, LucideGlobe, LucideChevronDown, LucideChevronRight, 
+    LucideBookUser, LucideGlobe, LucideChevronDown, LucideChevronRight,
     LucideBrainCog, LucideHeartHandshake, LucideDrama, LucideEyeOff, LucideMessageCircle,
     LucideUserCog, LucideBot, LucideFileArchive, LucideCpu, LucideShare2, LucideImage,
     LucideCalendarDays,
@@ -86,6 +93,13 @@ export const ICONS = {
     LucideFileDown,
     LucideGalleryHorizontal,
     LucideImages,
-    // [FIXED] v1.1 에러 해결: AssetTab에서 사용하는 LucideBug 아이콘을 추가합니다.
     LucideBug,
+    LucideHammer,
+    LucideFileCode,
+    LucideEye,
+    LucideCog,
+    LucideExpand,
+    // [FIX] Add the missing LucideFolderPlus icon
+    LucideFolder,
+    LucideFolderPlus,
 };

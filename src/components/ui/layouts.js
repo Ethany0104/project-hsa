@@ -7,9 +7,7 @@ import { ICONS } from '../../constants';
  */
 export const SideSheet = ({ isOpen, onClose, children, size = 'default' }) => {
     const sizeClasses = {
-        // [PD 주석] v21: 페르소나 패널(3단)에 최적화된 너비(6xl, 1152px)로 재조정
         default: 'w-screen lg:w-full lg:max-w-6xl',
-        // [PD 주석] v21: 유저 패널(1단)이 너무 좁아보이지 않도록 너비를 lg(512px)로 재조정
         narrow: 'w-screen md:w-full md:max-w-lg'
     };
 
@@ -20,13 +18,16 @@ export const SideSheet = ({ isOpen, onClose, children, size = 'default' }) => {
     return (
         <>
             <div
-                className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 z-[109] ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                // [수정] Tailwind z-index 클래스 대신 CSS 변수를 사용합니다.
+                className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                style={{ zIndex: 'var(--z-side-sheet-overlay)' }}
                 onClick={onClose}
             ></div>
 
             <div
-                className={`fixed inset-y-0 right-0 z-[110] transition-transform duration-300 ease-in-out ${sizeClasses[size]}`}
-                style={transformStyle}
+                // [수정] Tailwind z-index 클래스 대신 CSS 변수를 사용합니다.
+                className={`fixed inset-y-0 right-0 transition-transform duration-300 ease-in-out ${sizeClasses[size]}`}
+                style={{ ...transformStyle, zIndex: 'var(--z-side-sheet-panel)' }}
             >
                 <div className="h-full bg-[var(--panel-bg)] shadow-2xl flex flex-col border-l border-[var(--border-primary)] w-full">
                     {children}

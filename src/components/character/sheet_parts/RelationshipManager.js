@@ -7,7 +7,8 @@ const RelationshipManager = ({ character, allCharacters, onUpdate }) => {
 
     const handleAddRelationship = () => {
         if (!newRelationship.targetId || !newRelationship.type) return;
-        const newRel = { ...newRelationship, id: Date.now(), targetId: parseInt(newRelationship.targetId, 10) };
+        // [수정] ID 생성 방식을 Date.now()에서 crypto.randomUUID()로 변경하여 고유성을 보장합니다.
+        const newRel = { ...newRelationship, id: crypto.randomUUID(), targetId: parseInt(newRelationship.targetId, 10) };
         const updatedRelationships = [...(character.relationships || []), newRel];
         onUpdate('relationships', updatedRelationships);
         setNewRelationship({ targetId: '', type: '우호', history: '' });

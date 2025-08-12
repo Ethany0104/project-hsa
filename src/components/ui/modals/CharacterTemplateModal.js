@@ -4,7 +4,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 
 export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, onClose }) => {
     const [templateToDelete, setTemplateToDelete] = useState(null);
-    const [activeFilter, setActiveFilter] = useState('user'); // 'user' or 'npc'
+    const [activeFilter, setActiveFilter] = useState('npc'); // 기본값을 '페르소나'로 변경
 
     if (!isOpen) return null;
 
@@ -19,11 +19,6 @@ export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, on
         }
     };
 
-    const handleLoad = (template) => {
-        onLoad(template);
-        onClose();
-    };
-
     const filteredTemplates = templates.filter(template => {
         if (activeFilter === 'user') return template.isUser;
         return !template.isUser;
@@ -31,7 +26,12 @@ export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, on
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[140] animate-fadeIn backdrop-blur-sm p-4">
+            {/* [Z-INDEX] 캐릭터 템플릿: 140 */}
+            <div 
+                // [수정] z-index를 CSS 변수로 관리
+                className="fixed inset-0 bg-black/70 flex justify-center items-center animate-fadeIn backdrop-blur-sm p-4"
+                style={{ zIndex: 'var(--z-character-template-modal)' }}
+            >
                 <div className="panel-ui rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col border border-[var(--border-primary)]">
                     <header className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
                         <h2 className="text-lg font-bold text-[var(--accent-primary)] font-sans flex items-center">
@@ -69,8 +69,8 @@ export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, on
                         ) : (
                             <ul className="space-y-2 p-2">
                                 {filteredTemplates.map(template => {
-                                    // [BUG FIX] isUser 값에 따라 다른 컨셉 필드를 사용하도록 수정합니다.
-                                        const conceptText = template.generationConcept;                                    return (
+                                    const conceptText = template.generationConcept;
+                                    return (
                                         <li key={template.id} className="p-3 bg-[var(--panel-bg)] hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 font-sans group">
                                             <div className="flex items-center justify-between gap-4">
                                                 <div className="flex items-center min-w-0">
@@ -85,7 +85,7 @@ export const CharacterTemplateModal = ({ isOpen, templates, onLoad, onDelete, on
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                                    <button onClick={() => handleLoad(template)} className="px-3 py-1 bg-[var(--accent-primary)] text-white text-xs rounded-md hover:bg-[var(--accent-secondary)] transition-opacity whitespace-nowrap">불러오기</button>
+                                                    <button onClick={() => onLoad(template)} className="px-3 py-1 bg-[var(--accent-primary)] text-white text-xs rounded-md hover:bg-[var(--accent-secondary)] transition-opacity whitespace-nowrap">불러오기</button>
                                                     <button onClick={() => confirmDelete(template)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)] rounded-full hover:bg-red-500/10 transition-colors"><ICONS.LucideTrash2 size={16}/></button>
                                                 </div>
                                             </div>

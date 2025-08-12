@@ -8,18 +8,17 @@ import { ICONS } from '../../../constants';
  * @param {object} props - { imageUrl, onClose }
  */
 export const ImagePreviewModal = ({ imageUrl, onClose }) => {
-    // imageUrl이 없으면 아무것도 렌더링하지 않습니다.
     if (!imageUrl) return null;
 
     return (
-        // 모달 배경. 클릭 시 onClose 함수를 호출하여 닫습니다.
         <div 
-            className="fixed inset-0 bg-black/80 flex justify-center items-center z-[220] animate-fadeIn backdrop-blur-sm p-4"
+            // [수정] z-index를 CSS 변수로 관리
+            className="fixed inset-0 bg-black/80 flex justify-center items-center animate-fadeIn backdrop-blur-sm p-4"
             onClick={onClose}
+            style={{ zIndex: 'var(--z-image-preview)' }}
         >
             <div 
                 className="relative max-w-full max-h-full"
-                // 이미지 자체를 클릭했을 때 모달이 닫히는 것을 방지합니다.
                 onClick={(e) => e.stopPropagation()} 
             >
                 <img 

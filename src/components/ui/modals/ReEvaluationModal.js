@@ -14,7 +14,7 @@ const ProposalItem = ({ title, content }) => {
 };
 
 export const ReEvaluationModal = () => {
-        const { storyProps, handlerProps } = useStoryContext();
+    const { storyProps, handlerProps } = useStoryContext();
     const { reEvaluation } = storyProps;
     const { handleConfirmReEvaluation } = handlerProps;
 
@@ -33,7 +33,12 @@ export const ReEvaluationModal = () => {
     const newProfile = proposal?.newProfile;
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 animate-fadeIn backdrop-blur-sm p-4">
+        // [Z-INDEX] 재평가 모달: 140
+        <div 
+            // [수정] z-index를 CSS 변수로 관리
+            className="fixed inset-0 bg-black/70 flex justify-center items-center animate-fadeIn backdrop-blur-sm p-4"
+            style={{ zIndex: 'var(--z-re-evaluation-modal)' }}
+        >
             <div className="panel-ui rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-[var(--border-primary)]">
                 <header className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
                     <h2 className="text-lg font-bold text-[var(--accent-primary)] font-sans flex items-center">

@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardHeader } from '../../ui/layouts';
 import { ConfirmationModal } from '../../ui';
-import { ICONS, DEFAULT_PERSONA } from '../../../constants';
+import { ICONS } from '../../../constants';
 import { useStoryContext } from '../../../contexts/StoryProvider';
 
 const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
     const { storyProps, handlerProps } = useStoryContext();
     const { characters } = storyProps;
-    const { setCharacters, setIsCharacterTemplateModalOpen } = handlerProps;
+    // [수정] showToast를 컨텍스트에서 가져옵니다.
+    const { handleAddCharacter, handleDeleteCharacter, setIsCharacterTemplateModalOpen, showToast } = handlerProps;
 
     const [isAddingPersona, setIsAddingPersona] = useState(false);
     const [newPersonaName, setNewPersonaName] = useState("");
@@ -22,17 +23,25 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
     }, [isAddingPersona]);
 
     const handleConfirmAddPersona = () => {
-        if (!newPersonaName.trim()) return;
-        const newPersona = { ...DEFAULT_PERSONA, id: Date.now(), name: newPersonaName.trim() };
-        setCharacters(prev => [...prev, newPersona]);
+        const trimmedName = newPersonaName.trim();
+        if (!trimmedName) return;
+
+        // [수정] 핸들러를 호출하기 전에 UI에서 먼저 중복 검사를 수행합니다.
+        if (characters.some(c => c.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
+            showToast(`'${trimmedName}' 이름의 페르소나가 이미 존재합니다.`, 'error');
+            return;
+        }
+
+        handleAddCharacter(trimmedName);
         setNewPersonaName("");
         setIsAddingPersona(false);
     };
 
     const confirmDeletePersona = (persona) => setPersonaToDelete(persona);
+    
     const executeDeletePersona = () => {
         if (!personaToDelete) return;
-        setCharacters(prev => prev.filter(c => c.id !== personaToDelete.id));
+        handleDeleteCharacter(personaToDelete);
         setPersonaToDelete(null);
     };
 
@@ -98,7 +107,6 @@ const CharacterTab = ({ onEditCharacter, onToggleFloater }) => {
                                     </div>
                                     <div className="flex-grow min-w-0">
                                         <h3 className="font-bold text-[var(--text-primary)] truncate">{char.name}</h3>
-                                        {/* [BUG FIX] 'generationConcept'을 올바르게 참조하도록 수정합니다. */}
                                         <p className="text-xs text-[var(--text-secondary)] break-words truncate">{char.generationConcept || '컨셉 미설정'}</p>
                                     </div>
                                 </div>

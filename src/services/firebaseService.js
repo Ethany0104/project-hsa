@@ -6,7 +6,7 @@ import {
     orderBy, limit 
 } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll, uploadString, getBytes } from "firebase/storage";
 import { firebaseConfig } from "../config/firebaseConfig" 
 
 // --- Firebase Initialization ---
@@ -33,6 +33,52 @@ const sanitizeForFirestore = (obj) => {
   return newObj;
 };
 
+// --- Asset Explorer Service ---
+// [수정] 에셋 탐색기 서비스 로직을 개편합니다.
+// 이제 파일 메타데이터(소유자 등)는 Firestore에서 관리하므로, Storage 서비스는 순수하게 파일/폴더의 존재 여부만 다룹니다.
+export const assetService = {
+  // 폴더 목록만 가져옵니다. 파일 목록은 Firestore의 'assets' 배열에서 가져옵니다.
+  listFolders: async (storyId, path) => {
+    if (!storyId) return [];
+    const fullPath = path ? `assets/${storyId}/${path}` : `assets/${storyId}`;
+    const listRef = ref(storage, fullPath);
+    const res = await listAll(listRef);
+
+    return res.prefixes.map(folderRef => ({
+        name: folderRef.name,
+        path: folderRef.fullPath.replace(`assets/${storyId}/`, ''), // 상대 경로로 저장
+        type: 'folder',
+    }));
+  },
+
+  createFolder: async (storyId, path, folderName) => {
+    // 폴더 생성을 위해 내부에 .placeholder 파일을 업로드합니다.
+    const fullPath = `assets/${storyId}/${path ? `${path}/` : ''}${folderName}/.placeholder`;
+    const folderRef = ref(storage, fullPath);
+    await uploadString(folderRef, '');
+    return { name: folderName, path: `${path ? `${path}/` : ''}${folderName}`, type: 'folder' };
+  },
+
+  deleteFile: async (filePath) => {
+    // 파일 경로를 받아 Storage에서 직접 삭제합니다.
+    const fileRef = ref(storage, filePath);
+    await deleteObject(fileRef);
+  },
+
+  deleteFolder: async (folderPath) => {
+    // 폴더 내의 모든 파일과 하위 폴더를 재귀적으로 삭제합니다.
+    const listRef = ref(storage, folderPath);
+    const res = await listAll(listRef);
+
+    const deletePromises = [];
+    res.items.forEach(itemRef => deletePromises.push(deleteObject(itemRef)));
+    res.prefixes.forEach(folderRef => deletePromises.push(assetService.deleteFolder(folderRef.fullPath)));
+
+    await Promise.all(deletePromises);
+  },
+};
+
+
 // --- Story Data Service (Firestore & Storage) ---
 export const storyService = {
   uploadImage: async (file, path) => {
@@ -58,32 +104,17 @@ export const storyService = {
     }
   },
 
-  /**
-   * [신규 기능] 스토리지의 한 위치에 있는 이미지를 다른 위치로 복사합니다.
-   * 템플릿 에셋을 새 장면에 추가할 때 사용됩니다.
-   * @param {string} sourceUrl - 복사할 원본 이미지의 다운로드 URL.
-   * @param {string} destinationPath - 이미지를 복사할 새로운 스토리지 경로.
-   * @returns {Promise<string>} - 복사된 새 이미지의 다운로드 URL.
-   */
   copyImageInStorage: async (sourceUrl, destinationPath) => {
     try {
-      // 1. 원본 URL을 사용해 이미지 데이터를 Blob 형태로 가져옵니다.
-      const response = await fetch(sourceUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch source image: ${response.statusText}`);
-      }
-      const blob = await response.blob();
-
-      // 2. 새로운 경로에 Blob 데이터를 업로드합니다.
+      const sourceRef = ref(storage, sourceUrl);
+      const bytes = await getBytes(sourceRef);
       const destinationRef = ref(storage, destinationPath);
-      const snapshot = await uploadBytes(destinationRef, blob);
-
-      // 3. 새로 업로드된 파일의 다운로드 URL을 반환합니다.
+      const snapshot = await uploadBytes(destinationRef, bytes);
       const newDownloadURL = await getDownloadURL(snapshot.ref);
       return newDownloadURL;
     } catch (error) {
       console.error("스토리지 이미지 복사 중 오류 발생:", error);
-      throw error; // 오류를 상위로 전파하여 호출부에서 처리하도록 합니다.
+      throw error;
     }
   },
 
@@ -227,5 +258,24 @@ export const storyService = {
   deleteCharacterTemplate: async (id) => {
     if (!id) return;
     await deleteDoc(doc(db, "characterTemplates", id));
+  },
+
+  fetchCustomTools: async () => {
+    const querySnapshot = await getDocs(collection(db, "users", "defaultUser", "customTools"));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  saveCustomTool: async (toolData) => {
+    const { id, ...dataToSave } = toolData;
+    const docId = id.startsWith('new_') ? Date.now().toString() : id;
+    const sanitizedData = sanitizeForFirestore(dataToSave);
+    const toolRef = doc(db, "users", "defaultUser", "customTools", docId);
+    await setDoc(toolRef, { ...sanitizedData, savedAt: serverTimestamp() }, { merge: true });
+    return docId;
+  },
+
+  deleteCustomTool: async (toolId) => {
+    if (!toolId) return;
+    await deleteDoc(doc(db, "users", "defaultUser", "customTools", toolId));
   },
 };

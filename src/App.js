@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStoryContext } from './contexts/StoryProvider';
 import ControlTower from './components/control_tower/ControlTower';
@@ -6,6 +7,8 @@ import { UserSheetContent } from './components/character/UserSheetContent';
 import { PersonaSheetContent } from './components/character/PersonaSheetContent';
 import { SideSheet, Toast, PersonaStatusFloater, ImagePreviewModal } from './components/ui';
 import { PdChatModal } from './components/pd_chat/PdChatModal';
+import ForgeModal from './components/forge/ForgeModal';
+import AssetExplorerModal from './components/asset_explorer/AssetExplorerModal'; // Import the new modal
 import './styles/theme.css';
 
 function App() {
@@ -21,7 +24,6 @@ function App() {
 
   const {
     setEditingState,
-    // [수정] handleUpdateAndSaveCharacter 대신 통합 핸들러인 handleCharacterUpdate를 가져옵니다.
     handleCharacterUpdate,
     setToast,
     handleToggleFloater,
@@ -31,6 +33,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('character');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   const [isPdChatOpen, setIsPdChatOpen] = useState(false);
+  const [isForgeOpen, setIsForgeOpen] = useState(false);
+  const [isAssetExplorerOpen, setIsAssetExplorerOpen] = useState(false); // Add state for the new modal
   
   const lastWidth = useRef(window.innerWidth);
 
@@ -47,6 +51,8 @@ function App() {
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen(prev => !prev), []);
   const togglePdChat = useCallback(() => setIsPdChatOpen(prev => !prev), []);
+  const toggleForge = useCallback(() => setIsForgeOpen(prev => !prev), []);
+  const toggleAssetExplorer = useCallback(() => setIsAssetExplorerOpen(prev => !prev), []); // Add toggle function for the new modal
 
   const handleEditCharacter = useCallback((character) => {
     setEditingState({
@@ -80,6 +86,8 @@ function App() {
           onToggle={toggleSidebar}
           onEditCharacter={handleEditCharacter}
           onTogglePdChat={togglePdChat}
+          onToggleForge={toggleForge}
+          onToggleAssetExplorer={toggleAssetExplorer} // Pass the new toggle function
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onToggleFloater={handleToggleFloater}
@@ -96,7 +104,6 @@ function App() {
         onDismiss={() => setToast(prev => ({...prev, show: false}))} 
       />
 
-      {/* [수정] onUpdate prop에 통합 핸들러인 handleCharacterUpdate를 전달합니다. */}
       <SideSheet isOpen={editingState.isOpen && editingState.type === 'user'} onClose={handleCloseSheets} size="narrow">
         {editingCharacter && <UserSheetContent character={editingCharacter} onUpdate={handleCharacterUpdate} onClose={handleCloseSheets} />}
       </SideSheet>
@@ -106,6 +113,10 @@ function App() {
       </SideSheet>
 
       <PdChatModal isOpen={isPdChatOpen} onClose={togglePdChat} />
+      
+      <ForgeModal isOpen={isForgeOpen} onClose={toggleForge} />
+
+      <AssetExplorerModal isOpen={isAssetExplorerOpen} onClose={toggleAssetExplorer} /> {/* Render the new modal */}
 
       {floatingStatusWindows.map(charId => {
           const char = characters.find(c => c.id === charId);

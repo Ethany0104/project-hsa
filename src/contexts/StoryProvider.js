@@ -79,9 +79,7 @@ export const StoryProvider = ({ children }) => {
         }
     }, [storyDataState.storyId, storyDataState.setCharacters, uiState.setIsProcessing, showToast]);
 
-    // [수정] handleUploadAsset 함수에서 isProcessing 상태 관리를 제거합니다.
-    // 이제 이 함수는 단일 파일 업로드 로직에만 집중하고, 여러 파일의 처리 상태는 호출부(AssetTab)에서 관리합니다.
-    const handleUploadAsset = useCallback(async (file, ownerId) => {
+    const handleUploadAsset = useCallback(async (file, ownerId, path) => {
         if (!storyDataState.storyId) {
             throw new Error("에셋을 업로드하려면 먼저 장면을 시작해야 합니다.");
         }
@@ -90,9 +88,8 @@ export const StoryProvider = ({ children }) => {
         }
         
         try {
-            const fileExtension = file.name.split('.').pop();
-            const assetId = Date.now() + Math.random(); // 동시 업로드 시 ID 충돌 방지를 위해 random 추가
-            const uploadPath = `assets/${storyDataState.storyId}/${assetId}.${fileExtension}`;
+            const assetId = `asset_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const uploadPath = `assets/${storyDataState.storyId}/${path ? `${path}/` : ''}${assetId}_${file.name}`;
             
             const downloadURL = await storyService.uploadImage(file, uploadPath);
 
@@ -100,24 +97,35 @@ export const StoryProvider = ({ children }) => {
                 id: assetId,
                 fileName: file.name,
                 storageUrl: downloadURL,
+                storagePath: uploadPath,
                 ownerId: ownerId,
+                path: path,
+                type: 'file',
             };
-
-            // 상태를 직접 업데이트하는 대신, 생성된 새 에셋 정보를 반환합니다.
+            
             return newAsset;
 
         } catch (error) {
             console.error("에셋 업로드 실패:", error);
-            // 에러 발생 시 호출부에서 처리할 수 있도록 에러를 다시 던집니다.
             throw new Error(`'${file.name}' 업로드 실패: ${error.message}`);
         }
     }, [storyDataState.storyId]);
+
+    const handleBulkAssetSave = useCallback(async () => {
+        if (!storyDataState.storyId) return;
+        try {
+            await storyService.saveStory(storyDataState.storyId, { assets: storyDataState.assets });
+        } catch (error) {
+            showToast(`에셋 정보 저장 실패: ${error.message}`, 'error');
+        }
+    }, [storyDataState.storyId, storyDataState.assets, showToast]);
+
 
     const handleDeleteAsset = useCallback(async (assetToDelete) => {
         if (!storyDataState.storyId || !assetToDelete) return;
         uiState.setIsProcessing(true);
         try {
-            await storyService.deleteImage(assetToDelete.storageUrl);
+            await storyService.deleteImage(assetToDelete.storagePath);
 
             const updatedAssets = storyDataState.assets.filter(asset => asset.id !== assetToDelete.id);
             storyDataState.setAssets(updatedAssets);
@@ -216,6 +224,7 @@ export const StoryProvider = ({ children }) => {
             handleUploadProfileImage,
             handleUploadAsset,
             handleDeleteAsset,
+            handleBulkAssetSave,
             showToast,
             _addEntryToIndex,
         }
@@ -227,7 +236,7 @@ export const StoryProvider = ({ children }) => {
         handleUpdatePinnedItem, handleReorderPinnedItems,
         handleRequestSaveCharacterTemplate, handleConfirmSaveCharacterTemplate,
         handleToggleFloater, handleUploadProfileImage,
-        handleUploadAsset, handleDeleteAsset
+        handleUploadAsset, handleDeleteAsset, handleBulkAssetSave
     ]);
 
     return (

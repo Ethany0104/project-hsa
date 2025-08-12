@@ -10,10 +10,6 @@ import { ICONS } from '../../../constants';
 export const Toast = ({ message, show, onDismiss, type = 'default' }) => { 
     useEffect(() => { 
         if (show) { 
-            // ==================================================================
-            // FEATURE: 토스트 메시지 표시 시간 연장
-            // ==================================================================
-            // 에러 메시지 등을 충분히 읽을 수 있도록 시간을 3초에서 5초로 늘립니다.
             const timer = setTimeout(() => { onDismiss(); }, 5000); 
             return () => clearTimeout(timer); 
         } 
@@ -34,7 +30,11 @@ export const Toast = ({ message, show, onDismiss, type = 'default' }) => {
     }
 
     return ( 
-        <div className={`fixed bottom-5 right-5 flex items-center px-6 py-3 rounded-lg shadow-2xl shadow-black/30 animate-toast z-[120] font-sans text-sm font-semibold ${toastStyles[type] || toastStyles.default}`}>
+        <div 
+            // [수정] z-index를 CSS 변수로 관리
+            className={`fixed bottom-5 right-5 flex items-center px-6 py-3 rounded-lg shadow-2xl shadow-black/30 animate-toast font-sans text-sm font-semibold ${toastStyles[type] || toastStyles.default}`}
+            style={{ zIndex: 'var(--z-toast)' }}
+        >
             {toastIcons[type] || toastIcons.default}
             {message}
         </div> 

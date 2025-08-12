@@ -174,7 +174,6 @@ const generateEmotionProfile = {
 // [2] 동적 상호작용 및 스토리 진행 관련 프롬프트
 // =================================================================
 
-// [추가] 이미지 선택을 위한 프롬프트 템플릿
 const selectBestImage = {
     system: `너는 주어진 텍스트의 감정과 상황을 분석하여, 제시된 파일명 목록 중 가장 적합한 파일명 '하나만'을 골라내는 텍스트 분류기다. 다른 설명 없이 오직 파일명만 응답해야 한다. 만약 적합한 이미지가 없다면 'none'을 반환하라.`,
     user: (text, fileNames) => `# 분석할 텍스트\n"${text}"\n\n# 선택 가능한 파일명\n${JSON.stringify(fileNames)}\n\n# 가장 적합한 파일명:`,
@@ -224,9 +223,10 @@ const updatePersonalGoals = {
     schema: { type: "OBJECT", properties: { goals: { type: "OBJECT", properties: { primaryGoal: { type: "STRING" }, alternativeGoal: { type: "STRING" } }, required: ["primaryGoal", "alternativeGoal"] } }, required: ["goals"] }
 };
 
+// [수정] AI가 더 풍부한 심리 변화를 제안하도록 system, user, schema를 모두 수정합니다.
 const reEvaluateCoreBeliefs = {
-    system: `너는 '심리 변화 분석가'다. 페르소나의 기존 핵심 서사와 최근 겪은 중요한 사건들을 비교 분석하여, 그의 내면에 어떤 변화가 일어났는지, 그리고 그 변화가 핵심 서사(결정적 경험, 핵심 원칙, 코어 디자이어)를 수정할 만큼 중대한지 판단해야 한다.`,
-    user: (character, recentEvents) => `# 기존 프로필\n${JSON.stringify(character, null, 2)}\n\n# 최근 주요 사건\n${recentEvents}\n\n# 요청\n최근 사건이 페르소나의 핵심 서사에 미친 영향을 분석하고, 변화가 필요하다면 새로운 서사 프로필을 제안하라. 변화가 필요 없다면 그 이유를 설명하라.`,
+    system: `너는 '심리 변화 분석가'다. 페르소나의 기존 핵심 서사와 최근 겪은 중요한 사건들을 비교 분석하여, 그의 내면에 어떤 변화가 일어났는지, 그리고 그 변화가 핵심 서사(결정적 경험, 핵심 원칙, 코어 디자이어)를 수정할 만큼 중대한지 판단해야 한다. 만약 핵심 서사가 변한다면, 그로 인해 파생될 수 있는 생활, 심리, 리비도, 취향의 변화까지 함께 제안해야 한다.`,
+    user: (character, recentEvents) => `# 기존 프로필\n${JSON.stringify(character, null, 2)}\n\n# 최근 주요 사건\n${recentEvents}\n\n# 요청\n최근 사건이 페르소나의 핵심 서사에 미친 영향을 분석하고, 변화가 필요하다면 새로운 서사 프로필(결정적 경험, 핵심 원칙, 코어 디자이어) 뿐만 아니라, 그로 인해 파생될 수 있는 lifestyle, psyche, libido, preferences의 변화까지 함께 제안하라. 변화가 필요 없다면 그 이유를 설명하라.`,
     schema: {
         type: "OBJECT",
         properties: {
@@ -237,7 +237,36 @@ const reEvaluateCoreBeliefs = {
                 properties: {
                     formativeEvent: { type: "STRING" },
                     corePrinciple: { type: "STRING" },
-                    coreDesire: { type: "STRING" }
+                    coreDesire: { type: "STRING" },
+                    lifestyle: {
+                        type: "OBJECT",
+                        properties: {
+                            attitude: { type: "STRING" },
+                            routines: { type: "STRING" },
+                            pleasures: { type: "STRING" }
+                        }
+                    },
+                    psyche: {
+                        type: "OBJECT",
+                        properties: {
+                            defenseMechanism: { type: "STRING" }
+                        }
+                    },
+                    libido: {
+                        type: "OBJECT",
+                        properties: {
+                            attitude: { type: "STRING" },
+                            intimacyStyle: { type: "STRING" },
+                            kinks: { type: "STRING" }
+                        }
+                    },
+                    preferences: {
+                        type: "OBJECT",
+                        properties: {
+                            likes: { type: "STRING" },
+                            dislikes: { type: "STRING" }
+                        }
+                    }
                 }
             }
         },
@@ -305,6 +334,5 @@ export const PROMPT_TEMPLATES = {
     reEvaluateCoreBeliefs,
     summarizeEvents,
     deduceTime,
-    // [추가] 새로 만든 이미지 선택 프롬프트를 export합니다.
     selectBestImage,
 };

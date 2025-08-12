@@ -1,3 +1,4 @@
+// src/components/control_tower/ControlTower.js
 import React, { useState, useMemo } from 'react';
 import { useStoryContext } from '../../contexts/StoryProvider';
 import {
@@ -10,10 +11,11 @@ import CharacterTab from './tabs/CharacterTab';
 import ContextTab from './tabs/ContextTab';
 import SettingsTab from './tabs/SettingsTab';
 import OocControlTab from './tabs/OocControlTab';
-// [추가] 새로 만든 AssetTab 컴포넌트를 가져옵니다.
-import AssetTab from './tabs/AssetTab';
+// AssetTab is no longer needed
+// import AssetTab from './tabs/AssetTab'; 
 
-function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, activeTab, onTabChange, onToggleFloater }) {
+// Receive onToggleAssetExplorer prop
+function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, onToggleForge, onToggleAssetExplorer, activeTab, onTabChange, onToggleFloater }) {
   const { storyProps, handlerProps } = useStoryContext();
   const {
     storyId, storyTitle, storyList, blueprintTemplates, characterTemplates, worldState,
@@ -39,23 +41,34 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
       setIsStoryListOpen(false);
   };
 
-  // [수정] '에셋' 탭을 네비게이션에 추가합니다.
   const navItems = [
     { id: 'character', icon: ICONS.LucideUsers, label: '인물' },
     { id: 'context', icon: ICONS.LucideClipboardList, label: '상황' },
     { id: 'assets', icon: ICONS.LucideGalleryHorizontal, label: '에셋' },
+    { id: 'forge', icon: ICONS.LucideHammer, label: '포지' },
     { id: 'settings', icon: ICONS.LucideSettings, label: 'AI 설정' },
     { id: 'ooc', icon: ICONS.LucideMessageCircle, label: '연출' },
   ];
 
+  // Modify handleTabClick to open modals for 'forge' and 'assets'
+  const handleTabClick = (tabId) => {
+    if (tabId === 'forge') {
+      onToggleForge();
+    } else if (tabId === 'assets') {
+      onToggleAssetExplorer();
+    } else {
+      onTabChange(tabId);
+    }
+  };
+
+  // Remove 'assets' case from renderTabContent
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
-      case 'settings': return <SettingsTab />;
-      case 'context': return <ContextTab />;
       case 'character': return <CharacterTab onEditCharacter={onEditCharacter} onToggleFloater={onToggleFloater} />;
+      case 'context': return <ContextTab />;
+      // case 'assets': return <AssetTab />; // Removed
+      case 'settings': return <SettingsTab />;
       case 'ooc': return <OocControlTab onTogglePdChat={onTogglePdChat} />;
-      // [추가] '에셋' 탭에 대한 렌더링 케이스를 추가합니다.
-      case 'assets': return <AssetTab />;
       default: return null;
     }
   }, [activeTab, onEditCharacter, onTogglePdChat, onToggleFloater]);
@@ -69,6 +82,11 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
     } else {
         setContextSettings(prev => ({ ...prev, situation: template.situation }));
     }
+  };
+
+  const handleLoadCharacterAndClose = (template) => {
+    handleLoadCharacterTemplate(template);
+    setIsCharacterTemplateModalOpen(false);
   };
 
   return (
@@ -95,9 +113,9 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
               {navItems.map(item => (
                 <button
                   key={item.id}
-                  onClick={() => onTabChange(item.id)}
+                  onClick={() => handleTabClick(item.id)}
                   title={item.label}
-                  className={`flex-1 py-2 px-2 text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center h-16 ${activeTab === item.id ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[var(--accent-shadow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'}`}
+                  className={`flex-1 py-2 px-1 text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center h-16 ${activeTab === item.id && !['forge', 'assets'].includes(item.id) ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[var(--accent-shadow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'}`}
                 >
                   <item.icon size={20} />
                   <span className="mt-1 text-xs">{item.label}</span>
@@ -125,13 +143,19 @@ function ControlTowerFunc({ isOpen, onToggle, onEditCharacter, onTogglePdChat, a
         </div>
       </aside>
 
-      <StoryListModal isOpen={isStoryListOpen} stories={storyList} onLoad={(id) => { handleLoadStory(id); setIsStoryListOpen(false); }} onDelete={confirmDeleteStory} onClose={() => setIsStoryListOpen(false)} />
+      <StoryListModal 
+        isOpen={isStoryListOpen} 
+        stories={storyList} 
+        onLoad={(id) => { handleLoadStory(id); setIsStoryListOpen(false); }} 
+        onDelete={confirmDeleteStory} 
+        onClose={() => setIsStoryListOpen(false)} 
+      />
       <ConfirmationModal isOpen={!!storyToDelete} onClose={() => setStoryToDelete(null)} onConfirm={executeDeleteStory} title="장면 삭제 확인">
         <p className="font-sans">정말로 <strong className="text-[var(--accent-primary)]">{storyToDelete?.title}</strong> 장면을 삭제하시겠습니까?</p>
       </ConfirmationModal>
       <ReEvaluationModal />
       <BlueprintTemplateModal isOpen={isTemplateModalOpen} templates={blueprintTemplates} onSave={handleSaveBlueprintTemplate} onLoad={handleLoadBlueprint} onDelete={handleDeleteBlueprintTemplate} onClose={() => setIsTemplateModalOpen(false)} />
-      <CharacterTemplateModal isOpen={isCharacterTemplateModalOpen} templates={characterTemplates} onLoad={handleLoadCharacterTemplate} onDelete={handleDeleteCharacterTemplate} onClose={() => setIsCharacterTemplateModalOpen(false)} />
+      <CharacterTemplateModal isOpen={isCharacterTemplateModalOpen} templates={characterTemplates} onLoad={handleLoadCharacterAndClose} onDelete={handleDeleteCharacterTemplate} onClose={() => setIsCharacterTemplateModalOpen(false)} />
       <SaveCharacterTemplateModal character={characterToSave} onSave={handleConfirmSaveCharacterTemplate} onClose={() => setCharacterToSave(null)} />
     </>
   );

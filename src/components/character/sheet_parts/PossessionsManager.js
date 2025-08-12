@@ -3,7 +3,8 @@ import { ICONS } from '../../../constants';
 
 const PossessionsManager = ({ possessions, onUpdate }) => {
     const handleAdd = () => {
-        const newPossessions = [...(possessions || []), { id: Date.now(), name: '', story: '' }];
+        // [수정] ID 생성 방식을 Date.now()에서 crypto.randomUUID()로 변경하여 고유성을 보장합니다.
+        const newPossessions = [...(possessions || []), { id: crypto.randomUUID(), name: '', story: '' }];
         onUpdate('space.cherishedPossessions', newPossessions);
     };
 
